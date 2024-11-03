@@ -24,9 +24,8 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && 
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# 设置 Python 和 pip 别名
-RUN ln -s /usr/bin/python3.11 /usr/bin/python && \
-    ln -s /usr/bin/pip3 /usr/bin/pip
+# 设置 Python 别名（如果需要的话）
+RUN if [ ! -e /usr/bin/python ]; then ln -s /usr/bin/python3.11 /usr/bin/python; fi
 
 # 设置pip镜像源
 RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
