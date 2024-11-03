@@ -1,0 +1,50 @@
+# 版本控制
+.git
+.gitignore
+.gitattributes
+
+# Docker相关
+Dockerfile
+docker-compose.yml
+.docker
+.dockerignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.project
+.pydevproject
+.settings
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 项目特定
+logs/
+data/
+*.db
+*.sqlite3 
