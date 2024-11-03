@@ -1,17 +1,21 @@
-# 使用Python 3.11作为基础镜像
-FROM python:3.11-slim
+# 使用阿里云镜像源
+FROM registry.cn-hangzhou.aliyuncs.com/library/python:3.11-slim
 
 # 设置工作目录
 WORKDIR /app
 
-# 设置环境变量
+# 设置pip镜像源和环境变量
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    TZ=Asia/Shanghai
+    TZ=Asia/Shanghai \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ \
+    PIP_TRUSTED_HOST=mirrors.aliyun.com
 
 # 安装系统依赖
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
         gcc \
         default-libmysqlclient-dev \
         curl \
