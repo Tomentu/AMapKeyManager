@@ -69,8 +69,6 @@ def proxy_request(endpoint):
                 # 增加对应搜索服务的使用次数
                 logger.info(f"Incrementing usage for {search_type} search")
                 KeyManager.increment_usage(key.id, search_type)
-                
-            if result.get('status') == '1':
                 return jsonify(result)
             else:
                 info = result.get('info', '')

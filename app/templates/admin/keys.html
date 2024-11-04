@@ -43,12 +43,64 @@
                                 <th>关键字搜索</th>
                                 <th>周边搜索</th>
                                 <th>多边形搜索</th>
+                                <th>限额设置</th>
                                 <th>最后重置</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="keyList"></tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 在 body 标签结束前添加模态框 -->
+    <div class="modal fade" id="limitsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">设置限额</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="limitsForm">
+                        <input type="hidden" id="limitKeyId">
+                        <div class="mb-3">
+                            <label class="form-label">关键字搜索限额</label>
+                            <input type="number" class="form-control" id="keywordSearchLimit" min="0">
+                            <small class="text-muted">留空则使用默认值</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">周边搜索限额</label>
+                            <input type="number" class="form-control" id="aroundSearchLimit" min="0">
+                            <small class="text-muted">留空则使用默认值</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">多边形搜索限额</label>
+                            <input type="number" class="form-control" id="polygonSearchLimit" min="0">
+                            <small class="text-muted">留空则使用默认值</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">关键字搜索QPS</label>
+                            <input type="number" class="form-control" id="keywordQpsLimit" min="0">
+                            <small class="text-muted">留空则使用默认值</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">周边搜索QPS</label>
+                            <input type="number" class="form-control" id="aroundQpsLimit" min="0">
+                            <small class="text-muted">留空则使用默认值</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">多边形搜索QPS</label>
+                            <input type="number" class="form-control" id="polygonQpsLimit" min="0">
+                            <small class="text-muted">留空则使用默认值</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveLimits()">保存</button>
                 </div>
             </div>
         </div>
@@ -92,6 +144,9 @@
                                 </td>
                                 <td>
                                     <small>${formatUsage(key.search_usage.polygon)}</small>
+                                </td>
+                                <td>
+                                    <button class="btn btn-info btn-sm" onclick="showLimitsModal(${key.id})">设置限额</button>
                                 </td>
                                 <td>
                                     <small>${key.last_reset ? new Date(key.last_reset).toLocaleString() : '-'}</small>
@@ -169,6 +224,59 @@
 
         // 初始加载
         loadKeys();
+
+        // 显示限额设置模态框
+        function showLimitsModal(keyId) {
+            document.getElementById('limitKeyId').value = keyId;
+            fetch(`/admin/keys/${keyId}/limits`)
+                .then(response => response.json())
+                .then(limits => {
+                    document.getElementById('keywordSearchLimit').value = limits.keyword_search_limit || '';
+                    document.getElementById('aroundSearchLimit').value = limits.around_search_limit || '';
+                    document.getElementById('polygonSearchLimit').value = limits.polygon_search_limit || '';
+                    document.getElementById('keywordQpsLimit').value = limits.keyword_qps_limit || '';
+                    document.getElementById('aroundQpsLimit').value = limits.around_qps_limit || '';
+                    document.getElementById('polygonQpsLimit').value = limits.polygon_qps_limit || '';
+                    
+                    new bootstrap.Modal(document.getElementById('limitsModal')).show();
+                })
+                .catch(error => {
+                    alert('获取限额失败: ' + error);
+                });
+        }
+
+        // 保存限额设置
+        function saveLimits() {
+            const keyId = document.getElementById('limitKeyId').value;
+            const limits = {
+                keyword_search_limit: parseInt(document.getElementById('keywordSearchLimit').value) || null,
+                around_search_limit: parseInt(document.getElementById('aroundSearchLimit').value) || null,
+                polygon_search_limit: parseInt(document.getElementById('polygonSearchLimit').value) || null,
+                keyword_qps_limit: parseInt(document.getElementById('keywordQpsLimit').value) || null,
+                around_qps_limit: parseInt(document.getElementById('aroundQpsLimit').value) || null,
+                polygon_qps_limit: parseInt(document.getElementById('polygonQpsLimit').value) || null
+            };
+
+            fetch(`/admin/keys/${keyId}/limits`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(limits)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('更新失败: ' + data.error);
+                } else {
+                    bootstrap.Modal.getInstance(document.getElementById('limitsModal')).hide();
+                    loadKeys();
+                }
+            })
+            .catch(error => {
+                alert('更新失败: ' + error);
+            });
+        }
     </script>
 </body>
 </html> 

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict
 from app.models.api_key import APIKey
 from app.core.database import db
 from app.core.logger import logger
@@ -11,14 +11,7 @@ class KeyManager:
     
     @staticmethod
     def get_available_key(search_type: str) -> Optional[APIKey]:
-        """获取一个可用的API key
-        
-        Args:
-            search_type: 搜索类型 (keyword/around/polygon)
-            
-        Returns:
-            Optional[APIKey]: 可用的key或None
-        """
+        """获取一个可用的API key"""
         try:
             tz = pytz.timezone(Config.TIMEZONE)
             now = datetime.now(tz)
@@ -29,8 +22,7 @@ class KeyManager:
                 microsecond=0
             )
             
-            # 如果当前时间在今天的重置时间之后，使用今天的重置时间
-            # 如果当前时间在今天的重置时间之前，使用昨天的重置时间
+            # 确定重置时间
             if now < today_reset_time:
                 reset_time = today_reset_time - timedelta(days=1)
             else:
@@ -48,33 +40,32 @@ class KeyManager:
                     key.around_search_used = 0
                     key.polygon_search_used = 0
                     key.last_reset = now
-                    logger.info(f"Key {key.key} 使用计数已重置 at {now}")
+                    logger.info(f"Key {key.masked_key} 使用计数已重置")
 
-            # 如果有多个key需要重置，一次性提交
             if active_keys:
                 db.session.commit()
 
-            # 根据搜索类型查询未达到限额的key
+            # 根据搜索类型和限额查询可用的key
             if search_type == 'keyword':
                 key = APIKey.query.filter(
                     APIKey.is_active == True,
-                    APIKey.keyword_search_used < APIKey.SEARCH_LIMITS['keyword']
+                    APIKey.keyword_search_used < APIKey.keyword_search_limit
                 ).order_by(
-                    APIKey.keyword_search_used.asc()  # 优先使用keyword_search_used少的key
+                    APIKey.keyword_search_used.asc()
                 ).first()
             elif search_type == 'around':
                 key = APIKey.query.filter(
                     APIKey.is_active == True,
-                    APIKey.around_search_used < APIKey.SEARCH_LIMITS['around']
+                    APIKey.around_search_used < APIKey.around_search_limit
                 ).order_by(
-                    APIKey.around_search_used.asc()  # 优先使用around_search_used少的key
+                    APIKey.around_search_used.asc()
                 ).first()
             elif search_type == 'polygon':
                 key = APIKey.query.filter(
                     APIKey.is_active == True,
-                    APIKey.polygon_search_used < APIKey.SEARCH_LIMITS['polygon']
+                    APIKey.polygon_search_used < APIKey.polygon_search_limit
                 ).order_by(
-                    APIKey.polygon_search_used.asc()  # 优先使用polygon_search_used少的key
+                    APIKey.polygon_search_used.asc()
                 ).first()
             else:
                 raise ValueError(f"无效的搜索类型: {search_type}")
@@ -86,63 +77,57 @@ class KeyManager:
             return None
 
     @staticmethod
-    def add_key(key: str, daily_limit: int = 30000, description: str = None) -> APIKey:
-        """添加新的API key"""
+    def add_key(key: str, limits: Dict = None, description: str = None) -> APIKey:
+        """添加新的API key
+        
+        Args:
+            key: API密钥
+            limits: 可选的限额设置
+            description: 可选的描述
+        """
         try:
-            new_key = APIKey(
-                key=key,
-                daily_limit=daily_limit,
-                description=description,
-                is_active=True,
-                used_count=0,
-                last_reset=datetime.now()
-            )
-            db.session.add(new_key)
-            db.session.commit()
-            logger.info(f"新key已添加: {key}")
+            new_key = APIKey.create_key(key, limits)
+            if new_key and description:
+                new_key.description = description
+                db.session.commit()
+            logger.info(f"新key已添加: {new_key.masked_key}")
             return new_key
             
         except Exception as e:
             db.session.rollback()
             logger.error(f"添加key失败: {str(e)}")
-            raise 
+            raise
 
     @staticmethod
-    def mark_daily_limit(key_id: int, search_type: str) -> bool:
-        """标记key某个搜索服务达到当日限制
-        
-        Args:
-            key_id: API key的ID
-            search_type: 搜索类型 (keyword/around/polygon)
-            
-        Returns:
-            bool: 是否成功标记
-        """
+    def update_limits(key_id: int, limits: Dict) -> bool:
+        """更新key的限额设置"""
         try:
             key = APIKey.query.get(key_id)
             if not key:
                 logger.error(f"Key not found: {key_id}")
                 return False
                 
-            # 根据搜索类型更新对应的使用次数到限制值
-            if search_type == 'keyword':
-                key.keyword_search_used = key.SEARCH_LIMITS['keyword']
-            elif search_type == 'around':
-                key.around_search_used = key.SEARCH_LIMITS['around']
-            elif search_type == 'polygon':
-                key.polygon_search_used = key.SEARCH_LIMITS['polygon']
-            else:
-                logger.error(f"Invalid search type: {search_type}")
-                return False
-                
-            db.session.commit()
-            logger.warning(f"Key {key.key} 的 {search_type} 搜索已达到当日使用限制")
-            return True
+            success = key.update_limits(limits)
+            if success:
+                logger.info(f"Key {key.masked_key} 的限额已更新")
+            return success
             
         except Exception as e:
             db.session.rollback()
-            logger.error(f"更新key状态失败: {str(e)}")
+            logger.error(f"更新key限额失败: {str(e)}")
             return False
+
+    @staticmethod
+    def get_usage_status(key_id: int) -> Dict:
+        """获取key的使用状态"""
+        try:
+            key = APIKey.query.get(key_id)
+            if not key:
+                return {}
+            return key.get_usage_status()
+        except Exception as e:
+            logger.error(f"获取key使用状态失败: {str(e)}")
+            return {}
 
     @staticmethod
     def disable_key(key: APIKey, reason: str = None) -> bool:
@@ -151,7 +136,7 @@ class KeyManager:
             key.is_active = False
             key.description = f"{key.description or ''} | 禁用原因: {reason}"
             db.session.commit()
-            logger.warning(f"Key {key.key} 已永久禁用, 原因: {reason}")
+            logger.warning(f"Key {key.masked_key} 已永久禁用, 原因: {reason}")
             return True
             
         except Exception as e:
@@ -160,21 +145,19 @@ class KeyManager:
             return False
 
     @classmethod
-    def increment_usage(cls, key_id: int, search_type: str) -> None:
-        """增加密钥使用次数
-        
-        Args:
-            key_id: 密钥ID
-            search_type: 搜索类型 (keyword/around/polygon)
-        """
+    def increment_usage(cls, key_id: int, search_type: str) -> bool:
+        """增加密钥使用次数"""
         try:
             key = APIKey.query.get(key_id)
             if key:
-                key.increment_usage(search_type)
-                logger.debug(f"Key {key.key} {search_type} search usage increased")
+                success = key.increment_usage(search_type)
+                if success:
+                    logger.debug(f"Key {key.masked_key} {search_type} 搜索使用次数已增加")
+                return success
+            return False
         except Exception as e:
-            logger.error(f"Failed to increment key usage: {str(e)}")
-            db.session.rollback()
+            logger.error(f"增加key使用次数失败: {str(e)}")
+            return False
 
 
 

@@ -135,3 +135,48 @@ def delete_key(key_id):
         logger.error(f"Failed to delete key: {str(e)}")
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/keys/<int:key_id>/limits', methods=['GET'])
+def get_key_limits(key_id):
+    """获取指定key的限额设置"""
+    try:
+        key = APIKey.query.get_or_404(key_id)
+        return jsonify({
+            'keyword_search_limit': key.keyword_search_limit,
+            'around_search_limit': key.around_search_limit,
+            'polygon_search_limit': key.polygon_search_limit,
+            'keyword_qps_limit': key.keyword_qps_limit,
+            'around_qps_limit': key.around_qps_limit,
+            'polygon_qps_limit': key.polygon_qps_limit
+        })
+    except Exception as e:
+        logger.error(f"Failed to get key limits: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/keys/<int:key_id>/limits', methods=['PUT'])
+def update_key_limits(key_id):
+    """更新指定key的限额设置"""
+    try:
+        key = APIKey.query.get_or_404(key_id)
+        limits = request.get_json()
+        
+        # 更新限额
+        if 'keyword_search_limit' in limits:
+            key.keyword_search_limit = limits['keyword_search_limit']
+        if 'around_search_limit' in limits:
+            key.around_search_limit = limits['around_search_limit']
+        if 'polygon_search_limit' in limits:
+            key.polygon_search_limit = limits['polygon_search_limit']
+        if 'keyword_qps_limit' in limits:
+            key.keyword_qps_limit = limits['keyword_qps_limit']
+        if 'around_qps_limit' in limits:
+            key.around_qps_limit = limits['around_qps_limit']
+        if 'polygon_qps_limit' in limits:
+            key.polygon_qps_limit = limits['polygon_qps_limit']
+            
+        db.session.commit()
+        return jsonify({'message': 'Limits updated successfully'})
+    except Exception as e:
+        logger.error(f"Failed to update key limits: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
