@@ -162,10 +162,15 @@
 
             let html = '<div class="progress-details">';
             
-            // 查找当前进行中的类型（未完成且未标记为completed）
+            // 修改判断逻辑：页数相同也视为完成
             const currentType = Object.entries(progress).find(([_, data]) => 
                 !data.completed && data.processed_pages < data.total_pages
             );
+            
+            // 统计已完成的类型数量（包括页数相同的情况）
+            const completedCount = Object.values(progress).filter(data => 
+                data.completed || data.processed_pages >= data.total_pages
+            ).length;
             
             if (currentType) {
                 const [type, data] = currentType;
@@ -191,9 +196,6 @@
                     </div>
                 `;
             }
-            
-            // 统计已完成的类型数量
-            const completedCount = Object.values(progress).filter(data => data.completed).length;
             
             if (completedCount > 0) {
                 html += `
@@ -309,9 +311,9 @@
             const modalBody = document.getElementById('progressModalBody');
             let html = '<div class="progress-details">';
             
-            // 已完成的类型
+            // 已完成的类型（包括页数相同的情况）
             const completedTypes = Object.entries(progress)
-                .filter(([_, data]) => data.completed);
+                .filter(([_, data]) => data.completed || data.processed_pages >= data.total_pages);
                 
             if (completedTypes.length > 0) {
                 html += '<h6 class="mb-3">已完成的类型：</h6>';
@@ -331,9 +333,9 @@
                 });
             }
                 
-            // 进行中的类型
+            // 进行中的类型（排除页数相同的情况）
             const inProgress = Object.entries(progress)
-                .filter(([_, data]) => !data.completed);
+                .filter(([_, data]) => !data.completed && data.processed_pages < data.total_pages);
                 
             if (inProgress.length > 0) {
                 html += '<h6 class="mb-3 mt-4">进行中的类型：</h6>';
