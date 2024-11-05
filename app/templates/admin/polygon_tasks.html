@@ -163,7 +163,7 @@
             let html = '<div class="progress-details">';
             // 只显示当前进行中的类型
             const currentType = Object.entries(progress).find(([_, data]) => 
-                data.processed_pages < data.total_pages
+                !data.completed && data.processed_pages < data.total_pages
             );
             
             if (currentType) {

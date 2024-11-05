@@ -114,13 +114,13 @@ class PolygonCrawler:
                     'total_pages': total_pages,
                     'processed_pages': 1,  # 第一页已处理
                     'total_count': total_count,
-                    'processed_count': len(result['pois'])
+                    'processed_count': len(result['pois']),
+                    'completed': False  # 添加完成标识
                 }
                 task.progress = progress  # 使用setter方法
                 task.updated_at = datetime.now(tz)
                 db.session.commit()
                 time.sleep(2)
-                
                 # 获取剩余页面
                 for page in range(2, total_pages + 1):
                     task.current_page = page
@@ -141,7 +141,17 @@ class PolygonCrawler:
                         raise Exception(f"Proxy request failed with status {status_code}")
                     if not result or not result.get('pois'):
                         break
-                        
+                    
+                    pois = result['pois']
+                    if len(pois) <= 0:
+                        progress = task.progress
+                        progress[task.current_type]['completed'] = True  # 标记为已完成
+                        task.progress = progress
+                        task.updated_at = datetime.now(tz)
+                        db.session.commit()
+                        time.sleep(1)
+                        logger.info(f"Task {task.task_id} {task.current_type} completed")
+                        break
                     PolygonCrawler._save_to_csv(task.result_file, result['pois'], task.current_type)
                     
                     # 更新进度数据
@@ -153,9 +163,11 @@ class PolygonCrawler:
                     #print(f"Task {task.task_id} updated at {task.updated_at}")
                     db.session.commit()
                     time.sleep(2)
-            
+                
+                
             task.status = 'completed'
             db.session.commit()
+            
             return True
             
         except requests.exceptions.HTTPError as e:
