@@ -20,7 +20,7 @@ class TaskExecutor:
     
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            self.max_workers = 3  # 最大线程数
+            self.max_workers = 1  # 最大线程数
             self.task_queue = Queue()  # 任务队列
             self.running_tasks: Dict[str, threading.Event] = {}  # 记录运行中的任务
             self.stop_flag = False  # 停止标志
