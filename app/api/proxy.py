@@ -19,7 +19,6 @@ SEARCH_ENDPOINTS = {
 @proxy_bp.route('/<path:endpoint>', methods=['GET'])
 def proxy_request(endpoint):
     """代理高德地图API请求"""
-    print(endpoint)
     try:
         # 检查是否是搜索服务请求
         search_type = SEARCH_ENDPOINTS.get(endpoint)
@@ -35,7 +34,8 @@ def proxy_request(endpoint):
         if not key:
             return jsonify({
                 'status': '0',
-                'info': f'No available API key for {search_type} search'
+                'info': f'No available API key for {search_type} search',
+                'info_code': '1008611'
             }), 503
 
         # 构建请求URL和参数
@@ -93,6 +93,7 @@ def proxy_request(endpoint):
         logger.error(f"Proxy request failed: {str(e)}")
         return jsonify({
             'status': '0',
-            'info': str(e)
+            'info': str(e),
+            'info_code': '1008612'
         }), 500
 

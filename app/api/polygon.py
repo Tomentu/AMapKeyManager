@@ -25,16 +25,21 @@ def create_task():
                 'error': 'Task ID already exists'
             }), 400
 
+        # 获取优先级，默认为0
+        priority = data.get('priority', 999)
+
         task = PolygonCrawler.create_task(
             task_id=data['task_id'],
             name=data['name'],
-            polygon=data['polygon']
+            polygon=data['polygon'],
+            priority=priority
         )
 
         return jsonify({
             'task_id': task.task_id,
             'name': task.name,
-            'status': task.status
+            'status': task.status,
+            'priority': task.priority
         }), 201
 
     except Exception as e:
@@ -125,3 +130,56 @@ def resume_task(task_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+@polygon_bp.route('/tasks/<string:task_id>/priority', methods=['PUT'])
+def update_priority(task_id):
+    """更新任务优先级"""
+    try:
+        data = request.get_json()
+        if 'priority' not in data:
+            return jsonify({'error': 'Missing priority field'}), 400
+
+        task = PolygonTask.query.filter_by(task_id=task_id).first()
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+
+        if task.status == 'running':
+            return jsonify({'error': 'Cannot update priority of running task'}), 400
+
+        task.priority = data['priority']
+        db.session.commit()
+
+        return jsonify({
+            'task_id': task.task_id,
+            'priority': task.priority
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
+
+@polygon_bp.route('/tasks/resume-batch', methods=['POST'])
+def resume_tasks_batch():
+    """批量恢复任务"""
+    try:
+        data = request.get_json()
+        limit = data.get('limit', 5)  # 默认恢复5个任务
+        
+        # 验证参数
+        try:
+            limit = int(limit)
+            if limit <= 0:
+                return jsonify({'error': 'Limit must be positive integer'}), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid limit value'}), 400
+            
+        # 执行批量恢复
+        resumed_tasks = PolygonCrawler.resume_tasks(limit)
+        
+        return jsonify({
+            'message': f'Successfully resumed {len(resumed_tasks)} tasks',
+            'resumed_tasks': resumed_tasks
+        })
+
+    except Exception as e:
+        logger.error(f"Batch resume failed: {str(e)}")
+        return jsonify({'error': str(e)}), 500

@@ -10,6 +10,7 @@ class PolygonTask(db.Model):
     task_id = db.Column(db.String(50), unique=True)     # 自定义任务ID
     name = db.Column(db.String(100))                    # 任务名称
     polygon = db.Column(db.Text)                        # 多边形坐标
+    priority = db.Column(db.Integer, default=0)         # 任务优先级(0-9)，数字越小优先级越高
     
     # 任务状态
     status = db.Column(db.String(20), default='pending')  # pending, running, completed, failed

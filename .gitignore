@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
+.hintrc
 *$py.class
 *.so
 .Python
