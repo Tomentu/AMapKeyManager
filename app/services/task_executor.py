@@ -15,26 +15,29 @@ class TaskExecutor:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
+                    logger.info("Creating new TaskExecutor instance")
                     cls._instance = super().__new__(cls)
         return cls._instance
     
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            self.max_workers = 1  # 最大线程数
-            self.task_queue = Queue()  # 任务队列
-            self.running_tasks: Dict[str, threading.Event] = {}  # 记录运行中的任务
-            self.stop_flag = False  # 停止标志
-            self.workers = []  # 工作线程列表
-            self.stop_tasks_flag = False  # 停止所有任务的标志
-            self.semaphore = threading.Semaphore(1)  # 限制同时执行的任务数为1
+            logger.info("Initializing TaskExecutor")
+            self.max_workers = 1  # 确保只有一个工作线程
+            self.task_queue = Queue()
+            self.running_tasks: Dict[str, threading.Event] = {}
+            self.stop_flag = False
+            self.workers = []
+            self.stop_tasks_flag = False
+            self.semaphore = threading.Semaphore(1)
             
             # 启动工作线程
             for _ in range(self.max_workers):
-                worker = threading.Thread(target=self._worker_loop)
+                worker = threading.Thread(target=self._worker_loop, name=f"TaskExecutor-Worker-{_}")
                 worker.daemon = True
                 worker.start()
                 self.workers.append(worker)
-                
+                logger.info(f"Started worker thread: {worker.name}")
+            
             self.initialized = True
     
     def submit_task(self, task_id: str, task_func: Callable) -> bool:
@@ -50,6 +53,7 @@ class TaskExecutor:
             
             # 将任务添加到队列
             app = current_app._get_current_object()
+            
             self.task_queue.put((task_id, task_func, app, stop_event))
             logger.info(f"Task {task_id} added to queue")
             return True
