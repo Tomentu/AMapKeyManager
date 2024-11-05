@@ -17,6 +17,9 @@ import pytz
 # 获取东八区时区
 tz = pytz.timezone('Asia/Shanghai')
 
+# 创建全局单例
+task_executor = TaskExecutor()
+
 class PolygonCrawler:
     """多边形POI爬取服务"""
     
@@ -39,7 +42,7 @@ class PolygonCrawler:
         db.session.commit()
         
         # 提交到任务执行器
-        TaskExecutor().submit_task(task_id, PolygonCrawler.execute_task)
+        task_executor.submit_task(task_id, PolygonCrawler.execute_task)
         
         return task
 
@@ -272,14 +275,14 @@ class PolygonCrawler:
         if not task:
             raise ValueError(f"Task not found: {task_id}")
             
-        if TaskExecutor().is_task_running(task_id):
+        if task_executor.is_task_running(task_id):
             raise ValueError(f"Task is already running: {task_id}")
             
         if task.status == 'completed':
             raise ValueError(f"Task is already completed: {task_id}")
             
         # 提交到任务执行器
-        return TaskExecutor().submit_task(task_id, PolygonCrawler.execute_task)
+        return task_executor.submit_task(task_id, PolygonCrawler.execute_task)
 
     @staticmethod
     def resume_tasks(limit: int = 5) -> List[str]:
@@ -304,10 +307,10 @@ class PolygonCrawler:
         resumed_tasks = []
         for task in pending_tasks:
             try:
-                if TaskExecutor().is_task_running(task.task_id):
+                if task_executor.is_task_running(task.task_id):
                     continue
                     
-                if TaskExecutor().submit_task(task.task_id, PolygonCrawler.execute_task):
+                if task_executor.submit_task(task.task_id, PolygonCrawler.execute_task):
                     resumed_tasks.append(task.task_id)
                     
             except Exception as e:
@@ -315,3 +318,9 @@ class PolygonCrawler:
                 continue
                 
         return resumed_tasks
+
+    @staticmethod
+    def start_task(task_id: str):
+        """启动爬虫任务"""
+        task_executor.submit_task(task_id, PolygonCrawler.execute_task)
+        
