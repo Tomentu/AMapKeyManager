@@ -119,7 +119,7 @@ class PolygonCrawler:
                 task.progress = progress  # 使用setter方法
                 task.updated_at = datetime.now(tz)
                 db.session.commit()
-                time.sleep(0.1)
+                time.sleep(2)
                 
                 # 获取剩余页面
                 for page in range(2, total_pages + 1):
