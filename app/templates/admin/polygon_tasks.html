@@ -1,27 +1,32 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>多边形POI任务管理</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.staticfile.org/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.staticfile.org/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
     <style>
         .progress-details {
             min-width: 300px;
             max-width: 400px;
         }
+
         .progress {
             background-color: #e9ecef;
         }
+
         .progress-bar {
             background-color: #007bff;
         }
+
         .table td {
             vertical-align: middle;
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
@@ -43,7 +48,7 @@
     </nav>
     <div class="container mt-4">
         <h2>多边形POI任务管理</h2>
-        
+
         <!-- 创建新任务 -->
         <div class="card mb-4">
             <div class="card-header">创建新任务</div>
@@ -59,8 +64,8 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">多边形坐标</label>
-                        <textarea class="form-control" name="polygon" rows="3" required 
-                                placeholder="格式：lng1,lat1|lng2,lat2|..."></textarea>
+                        <textarea class="form-control" name="polygon" rows="3" required
+                            placeholder="格式：lng1,lat1|lng2,lat2|..."></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">优先级</label>
@@ -71,7 +76,7 @@
                 </form>
             </div>
         </div>
-        
+
         <!-- 任务列表 -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -162,14 +167,18 @@
 
             let html = '<div class="progress-details">';
             
-            // 修改判断逻辑：页数相同也视为完成
+            // 查找未完成的类型（排除已完成、页数相同和数据量>=180的情况）
             const currentType = Object.entries(progress).find(([_, data]) => 
-                !data.completed && data.processed_pages < data.total_pages
+                !data.completed && 
+                data.processed_pages < data.total_pages && 
+                data.processed_count < 180
             );
             
-            // 统计已完成的类型数量（包括页数相同的情况）
+            // 统计已完成的类型数量（包括页数相同和数据量>=180的情况）
             const completedCount = Object.values(progress).filter(data => 
-                data.completed || data.processed_pages >= data.total_pages
+                data.completed || 
+                data.processed_pages >= data.total_pages || 
+                data.processed_count >= 180
             ).length;
             
             if (currentType) {
@@ -177,7 +186,7 @@
                 const percent = data.total_pages > 0 
                     ? Math.round(data.processed_pages / data.total_pages * 100) 
                     : 0;
-                    
+                
                 html += `
                     <div class="mb-2">
                         <div class="d-flex justify-content-between align-items-center">
@@ -187,10 +196,7 @@
                         </div>
                         <div class="progress" style="height: 5px;">
                             <div class="progress-bar" role="progressbar" 
-                                 style="width: ${percent}%;" 
-                                 aria-valuenow="${percent}" 
-                                 aria-valuemin="0" 
-                                 aria-valuemax="100">
+                                 style="width: ${percent}%;">
                             </div>
                         </div>
                     </div>
@@ -235,10 +241,10 @@
                                 <td><small>${new Date(task.created_at).toLocaleString()}</small></td>
                                 <td><small>${new Date(task.updated_at).toLocaleString()}</small></td>
                                 <td>
-                                    ${task.status === 'failed' || task.status === 'pending' || task.status === 'stalled' ? 
-                                        `<button class="btn btn-warning btn-sm" onclick="resumeTask('${task.task_id}')">恢复</button>` : ''}
-                                    ${task.status === 'completed' ? 
-                                        `<button class="btn btn-success btn-sm" onclick="downloadResult('${task.task_id}')">下载</button>` : ''}
+                                    ${task.status === 'failed' || task.status === 'pending' || task.status === 'stalled' ?
+                                `<button class="btn btn-warning btn-sm" onclick="resumeTask('${task.task_id}')">恢复</button>` : ''}
+                                    ${task.status === 'completed' ?
+                                `<button class="btn btn-success btn-sm" onclick="downloadResult('${task.task_id}')">下载</button>` : ''}
                                 </td>
                             </tr>
                         `;
@@ -251,7 +257,7 @@
         }
 
         // 创建新任务
-        document.getElementById('createTaskForm').onsubmit = function(e) {
+        document.getElementById('createTaskForm').onsubmit = function (e) {
             e.preventDefault();
             const formData = new FormData(e.target);
             fetch('/api/polygon/tasks', {
@@ -261,18 +267,18 @@
                 },
                 body: JSON.stringify(Object.fromEntries(formData))
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    alert('创建失败: ' + data.error);
-                } else {
-                    loadTasks();
-                    e.target.reset();
-                }
-            })
-            .catch(error => {
-                alert('创建失败: ' + error);
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('创建失败: ' + data.error);
+                    } else {
+                        loadTasks();
+                        e.target.reset();
+                    }
+                })
+                .catch(error => {
+                    alert('创建失败: ' + error);
+                });
         };
 
         // 恢复任务
@@ -281,17 +287,17 @@
                 fetch(`/api/polygon/tasks/${taskId}/resume`, {
                     method: 'POST'
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert('恢复失败: ' + data.error);
-                    } else {
-                        loadTasks();
-                    }
-                })
-                .catch(error => {
-                    alert('恢复失败: ' + error);
-                });
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert('恢复失败: ' + data.error);
+                        } else {
+                            loadTasks();
+                        }
+                    })
+                    .catch(error => {
+                        alert('恢复失败: ' + error);
+                    });
             }
         }
 
@@ -310,11 +316,15 @@
         function showProgressDetails(progress) {
             const modalBody = document.getElementById('progressModalBody');
             let html = '<div class="progress-details">';
-            
-            // 已完成的类型（包括页数相同的情况）
+
+            // 已完成的类型（包括页数相同或数据量>=180的情况）
             const completedTypes = Object.entries(progress)
-                .filter(([_, data]) => data.completed || data.processed_pages >= data.total_pages);
-                
+                .filter(([_, data]) =>
+                    data.completed ||
+                    data.processed_pages >= data.total_pages ||
+                    data.processed_count >= 180
+                );
+
             if (completedTypes.length > 0) {
                 html += '<h6 class="mb-3">已完成的类型：</h6>';
                 completedTypes.forEach(([type, data]) => {
@@ -332,11 +342,15 @@
                     `;
                 });
             }
-                
-            // 进行中的类型（排除页数相同的情况）
+
+            // 进行中的类型（排除已完成、页数相同和数据量>=180的情况）
             const inProgress = Object.entries(progress)
-                .filter(([_, data]) => !data.completed && data.processed_pages < data.total_pages);
-                
+                .filter(([_, data]) =>
+                    !data.completed &&
+                    data.processed_pages < data.total_pages &&
+                    data.processed_count < 180
+                );
+
             if (inProgress.length > 0) {
                 html += '<h6 class="mb-3 mt-4">进行中的类型：</h6>';
                 inProgress.forEach(([type, data]) => {
@@ -360,13 +374,13 @@
                     `;
                 });
             }
-            
+
             // 添加总计信息
             const totalPages = Object.values(progress).reduce((sum, data) => sum + data.total_pages, 0);
             const processedPages = Object.values(progress).reduce((sum, data) => sum + data.processed_pages, 0);
             const totalCount = Object.values(progress).reduce((sum, data) => sum + data.total_count, 0);
             const processedCount = Object.values(progress).reduce((sum, data) => sum + data.processed_count, 0);
-            
+
             html += `
                 <div class="mt-4 pt-3 border-top">
                     <h6 class="mb-3">总计：</h6>
@@ -376,15 +390,15 @@
                     </div>
                     <div class="progress mt-2" style="height: 5px;">
                         <div class="progress-bar" role="progressbar" 
-                             style="width: ${Math.round(processedPages/totalPages*100)}%;">
+                             style="width: ${Math.round(processedPages / totalPages * 100)}%;">
                         </div>
                     </div>
                 </div>
             `;
-            
+
             html += '</div>';
             modalBody.innerHTML = html;
-            
+
             const modal = new bootstrap.Modal(document.getElementById('progressModal'));
             modal.show();
         }
@@ -398,17 +412,17 @@
                 },
                 body: JSON.stringify({ priority: parseInt(priority) })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    alert('更新优先级失败: ' + data.error);
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('更新优先级失败: ' + data.error);
+                        loadTasks(); // 刷新列表以恢复原值
+                    }
+                })
+                .catch(error => {
+                    alert('更新优先级失败: ' + error);
                     loadTasks(); // 刷新列表以恢复原值
-                }
-            })
-            .catch(error => {
-                alert('更新优先级失败: ' + error);
-                loadTasks(); // 刷新列表以恢复原值
-            });
+                });
         }
 
         // 打开批量恢复Modal
@@ -432,19 +446,19 @@
                 },
                 body: JSON.stringify({ limit: limit })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    alert('批量恢复失败: ' + data.error);
-                } else {
-                    alert(data.message);
-                    loadTasks();  // 刷新任务列表
-                    bootstrap.Modal.getInstance(document.getElementById('resumeBatchModal')).hide();
-                }
-            })
-            .catch(error => {
-                alert('批量恢复失败: ' + error);
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('批量恢复失败: ' + data.error);
+                    } else {
+                        alert(data.message);
+                        loadTasks();  // 刷新任务列表
+                        bootstrap.Modal.getInstance(document.getElementById('resumeBatchModal')).hide();
+                    }
+                })
+                .catch(error => {
+                    alert('批量恢复失败: ' + error);
+                });
         }
 
         // 停止所有任务
@@ -453,23 +467,23 @@
                 fetch('/api/polygon/tasks/stop-all', {
                     method: 'POST'
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert('停止任务失败: ' + data.error);
-                    } else {
-                        alert(data.message);
-                        loadTasks();  // 刷新任务列表
-                    }
-                })
-                .catch(error => {
-                    alert('停止任务失败: ' + error);
-                });
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert('停止任务失败: ' + data.error);
+                        } else {
+                            alert(data.message);
+                            loadTasks();  // 刷新任务列表
+                        }
+                    })
+                    .catch(error => {
+                        alert('停止任务失败: ' + error);
+                    });
             }
         }
 
         // 高亮当前页面的导航链接
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const currentPath = window.location.pathname;
             document.querySelectorAll('.nav-link').forEach(link => {
                 if (link.getAttribute('href') === currentPath) {
@@ -479,4 +493,5 @@
         });
     </script>
 </body>
-</html> 
+
+</html>
