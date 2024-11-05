@@ -79,7 +79,8 @@ def proxy_request(endpoint):
                     return proxy_request(endpoint)
                 elif 'INVALID_USER_KEY' in info:
                     # 禁用无效key并重试
-                    KeyManager.disable_key(key.id, reason=info)
+                    KeyManager.disable_key(key, reason=info)
+                    logger.warning(f"Key {key.masked_key} is invalid, reason: {info}")
                     return proxy_request(endpoint)
                 return jsonify(result)
         else:

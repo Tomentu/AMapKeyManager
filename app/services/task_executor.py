@@ -25,6 +25,7 @@ class TaskExecutor:
             self.running_tasks: Dict[str, bool] = {}  # 记录运行中的任务
             self.stop_flag = False  # 停止标志
             self.workers = []  # 工作线程列表
+            self.stop_tasks_flag = False  # 停止所有任务的标志
             
             # 启动工作线程
             for _ in range(self.max_workers):
@@ -66,6 +67,10 @@ class TaskExecutor:
                 try:
                     logger.info(f"Starting task {task_id}")
                     with app.app_context():
+                        # 检查是否需要停止所有任务
+                        if self.stop_tasks_flag:
+                            logger.info(f"Task {task_id} stopped by stop_all_tasks")
+                            continue
                         task_func(task_id)
                     logger.info(f"Task {task_id} completed")
                 except Exception as e:
@@ -102,3 +107,13 @@ class TaskExecutor:
             worker.join()
         # 清空队列
         self.task_queue.queue.clear()
+    
+    def stop_all_tasks(self):
+        """停止所有任务"""
+        with self._lock:
+            self.stop_tasks_flag = True
+            # 清空任务队列
+            self.task_queue.queue.clear()
+            # 记录当前运行的任务
+            running = list(self.running_tasks.keys())
+        return running

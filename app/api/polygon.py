@@ -4,6 +4,7 @@ from app.models.polygon_task import PolygonTask
 from app.core.database import db
 import os
 import logging
+from app.services.task_executor import TaskExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +54,13 @@ def list_tasks():
         return jsonify([{
             'task_id': task.task_id,
             'name': task.name,
-            'status': task.status,
+            'status': 'stalled' if task.is_stalled() else task.status,
             'current_type': task.current_type,
             'current_page': task.current_page,
             'progress': task.progress,
             'created_at': task.created_at.isoformat(),
-            'updated_at': task.updated_at.isoformat()
+            'updated_at': task.updated_at.isoformat(),
+            'priority': task.priority
         } for task in tasks])
 
     except Exception as e:
@@ -143,7 +145,7 @@ def update_priority(task_id):
         if not task:
             return jsonify({'error': 'Task not found'}), 404
 
-        if task.status == 'running':
+        if task.status == 'running' and not task.is_stalled():
             return jsonify({'error': 'Cannot update priority of running task'}), 400
 
         task.priority = data['priority']
@@ -182,4 +184,28 @@ def resume_tasks_batch():
 
     except Exception as e:
         logger.error(f"Batch resume failed: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@polygon_bp.route('/tasks/stop-all', methods=['POST'])
+def stop_all_tasks():
+    """停止所有任务"""
+    try:
+        # 停止所有任务
+        executor = TaskExecutor()
+        stopped_tasks = executor.stop_all_tasks()
+        
+        # 更新数据库中任务的状态
+        for task_id in stopped_tasks:
+            task = PolygonTask.query.filter_by(task_id=task_id).first()
+            if task:
+                task.status = 'pending'
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'Successfully stopped {len(stopped_tasks)} tasks',
+            'stopped_tasks': stopped_tasks
+        })
+
+    except Exception as e:
+        logger.error(f"Stop all tasks failed: {str(e)}")
         return jsonify({'error': str(e)}), 500

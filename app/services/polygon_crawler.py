@@ -12,6 +12,10 @@ import time
 from app.api.proxy import proxy_request  # 导入proxy模块的函数
 from flask import request, Request
 from werkzeug.test import EnvironBuilder
+import pytz
+
+# 获取东八区时区
+tz = pytz.timezone('Asia/Shanghai')
 
 class PolygonCrawler:
     """多边形POI爬取服务"""
@@ -29,7 +33,7 @@ class PolygonCrawler:
             name=name,
             polygon=polygon,
             priority=priority,
-            result_file=f"poi_{name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            result_file=f"{task_id}_poi.csv"
         )
         db.session.add(task)
         db.session.commit()
@@ -48,19 +52,38 @@ class PolygonCrawler:
             
         try:
             task.status = 'running'
+            task.updated_at = datetime.now(tz)
             db.session.commit()
             
-            # 遍历所有POI类型
-            for poi_type, type_codes in PolygonCrawler.get_poi_types().items():
-                task.current_type = poi_type
+            # 获取所有POI类型
+            poi_types = PolygonCrawler.get_poi_types()
+            
+            # 如果没有当前类型，从第一个开始
+            if not task.current_type or task.current_type not in poi_types:
+                task.current_type = next(iter(poi_types))
                 task.current_page = 1
                 db.session.commit()
+            
+            # 从当前类型开始遍历
+            current_found = False
+            for poi_type, type_codes in poi_types.items():
+                # 跳过直到找到当前类型
+                if not current_found and poi_type != task.current_type:
+                    continue
+                current_found = True
                 
-                # 先获取第一页和总数
+                task.current_type = poi_type
+                # 使用当前页码继续执行，不重置为1
+                if poi_type not in task.progress:
+                    task.current_page = 1
+                # 否则保持当前页码
+                db.session.commit()
+                
+                # 获取当前页数据
                 result = PolygonCrawler._fetch_page(
                     polygon=task.polygon,
                     types=type_codes,
-                    page=1,
+                    page=task.current_page,
                     offset=25
                 )
                 
@@ -90,12 +113,12 @@ class PolygonCrawler:
                     'processed_count': len(result['pois'])
                 }
                 task.progress = progress  # 使用setter方法
+                task.updated_at = datetime.now(tz)
                 db.session.commit()
                 
                 # 获取剩余页面
                 for page in range(2, total_pages + 1):
                     task.current_page = page
-                    
                     result = PolygonCrawler._fetch_page(
                         polygon=task.polygon,
                         types=type_codes,
@@ -120,6 +143,8 @@ class PolygonCrawler:
                     progress[task.current_type]['processed_pages'] += 1
                     progress[task.current_type]['processed_count'] += len(result['pois'])
                     task.progress = progress
+                    task.updated_at = datetime.now(tz)
+                    #print(f"Task {task.task_id} updated at {task.updated_at}")
                     db.session.commit()
                     time.sleep(2)
             
@@ -256,11 +281,17 @@ class PolygonCrawler:
         Returns:
             已恢复的任务ID列表
         """
-        # 获取待恢复的任务（按优先级排序）
-        pending_tasks = PolygonTask.query.filter_by(status='pending')\
-            .order_by(PolygonTask.priority)\
-            .limit(limit)\
-            .all()
+        # 先找出所有running状态但已停滞的任务
+        running_tasks = PolygonTask.query.filter_by(status='running').all()
+        stalled_task_ids = [task.task_id for task in running_tasks if task.is_stalled()]
+        
+        # 获取待恢复的任务（包括pending和stalled状态，按优先级排序）
+        pending_tasks = PolygonTask.query.filter(
+            db.or_(
+                PolygonTask.status == 'pending',
+                PolygonTask.task_id.in_(stalled_task_ids)
+            )
+        ).order_by(PolygonTask.priority).limit(limit).all()
             
         resumed_tasks = []
         for task in pending_tasks:
