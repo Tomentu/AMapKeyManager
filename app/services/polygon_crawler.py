@@ -44,7 +44,7 @@ class PolygonCrawler:
         return task
 
     @staticmethod
-    def execute_task(task_id: str) -> bool:
+    def execute_task(task_id: str,stop_event=None) -> bool:
         """执行任务（供任务执行器调用）"""
         task = PolygonTask.query.filter_by(task_id=task_id).first()
         if not task:
@@ -79,6 +79,10 @@ class PolygonCrawler:
                 # 否则保持当前页码
                 db.session.commit()
                 
+                if stop_event and stop_event.is_set():
+                    task.status = 'pending'
+                    db.session.commit()
+                    return False
                 # 获取当前页数据
                 polygon = task.polygon.strip().replace('\n', '').replace('\r', '').replace(' ', '')
                 result, status_code = PolygonCrawler._fetch_page(
@@ -140,15 +144,10 @@ class PolygonCrawler:
                     if status_code != 200:
                         raise Exception(f"Proxy request failed with status {status_code}")
                     if not result or not result.get('pois'):
-                        break
-                    
-                    pois = result['pois']
-                    if len(pois) <= 0:
                         progress = task.progress
                         progress[task.current_type]['completed'] = True  # 标记为已完成
                         task.progress = progress
                         task.updated_at = datetime.now(tz)
-                        db.session.commit()
                         time.sleep(1)
                         logger.info(f"Task {task.task_id} {task.current_type} completed")
                         break

@@ -161,7 +161,9 @@
             }
 
             let html = '<div class="progress-details">';
-            // 只显示当前进行中的类型
+            
+                
+            // 查找当前进行中的类型（未完成且未标记为completed）
             const currentType = Object.entries(progress).find(([_, data]) => 
                 !data.completed && data.processed_pages < data.total_pages
             );
@@ -191,10 +193,8 @@
                 `;
             }
             
-            // 添加查看详情按钮
-            const completedCount = Object.values(progress).filter(data => 
-                data.processed_pages === data.total_pages
-            ).length;
+            // 统计已完成的类型数量
+            const completedCount = Object.values(progress).filter(data => data.completed).length;
             
             if (completedCount > 0) {
                 html += `
@@ -312,7 +312,7 @@
             
             // 已完成的类型
             const completedTypes = Object.entries(progress)
-                .filter(([_, data]) => data.processed_pages === data.total_pages);
+                .filter(([_, data]) => data.completed);
                 
             if (completedTypes.length > 0) {
                 html += '<h6 class="mb-3">已完成的类型：</h6>';
@@ -333,7 +333,7 @@
                 
             // 进行中的类型
             const inProgress = Object.entries(progress)
-                .filter(([_, data]) => data.processed_pages < data.total_pages);
+                .filter(([_, data]) => !data.completed);
                 
             if (inProgress.length > 0) {
                 html += '<h6 class="mb-3 mt-4">进行中的类型：</h6>';

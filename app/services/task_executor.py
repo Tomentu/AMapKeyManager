@@ -22,7 +22,7 @@ class TaskExecutor:
         if not hasattr(self, 'initialized'):
             self.max_workers = 3  # 最大线程数
             self.task_queue = Queue()  # 任务队列
-            self.running_tasks: Dict[str, bool] = {}  # 记录运行中的任务
+            self.running_tasks: Dict[str, threading.Event] = {}  # 记录运行中的任务
             self.stop_flag = False  # 停止标志
             self.workers = []  # 工作线程列表
             self.stop_tasks_flag = False  # 停止所有任务的标志
@@ -43,9 +43,13 @@ class TaskExecutor:
                 logger.warning(f"Task {task_id} is already running")
                 return False
             
+            # 创建任务的停止事件
+            stop_event = threading.Event()
+            self.running_tasks[task_id] = stop_event
+            
             # 将任务添加到队列
             app = current_app._get_current_object()
-            self.task_queue.put((task_id, task_func, app))
+            self.task_queue.put((task_id, task_func, app, stop_event))
             logger.info(f"Task {task_id} added to queue")
             return True
     
@@ -53,26 +57,17 @@ class TaskExecutor:
         """工作线程循环"""
         while not self.stop_flag:
             try:
-                # 从队列获取任务，设置超时以便检查停止标志
-                task_id, task_func, app = self.task_queue.get(timeout=1)
-                
-                # 检查任务是否已在运行
-                with self._lock:
-                    if task_id in self.running_tasks:
-                        logger.warning(f"Task {task_id} is already running")
-                        self.task_queue.task_done()
-                        continue
-                    self.running_tasks[task_id] = True
+                # 从队列获取任务
+                task_id, task_func, app, stop_event = self.task_queue.get(timeout=1)
                 
                 try:
                     logger.info(f"Starting task {task_id}")
                     with app.app_context():
-                        # 检查是否需要停止所有任务
-                        if self.stop_tasks_flag:
-                            logger.info(f"Task {task_id} stopped by stop_all_tasks")
+                        if self.stop_tasks_flag or stop_event.is_set():
+                            logger.info(f"Task {task_id} stopped")
                             continue
-                        task_func(task_id)
-                    logger.info(f"Task {task_id} completed")
+                        # 传入stop_event给任务函数
+                        task_func(task_id, stop_event)
                 except Exception as e:
                     logger.error(f"Task {task_id} failed: {str(e)}")
                 finally:
@@ -81,9 +76,7 @@ class TaskExecutor:
                     self.task_queue.task_done()
                     
             except Empty:
-                continue  # 队列为空，继续等待
-            except Exception as e:
-                logger.error(f"Worker error: {str(e)}")
+                continue
     
     def get_running_tasks(self) -> list:
         """获取运行中的任务列表"""
@@ -93,8 +86,8 @@ class TaskExecutor:
     def is_task_running(self, task_id: str) -> bool:
         """检查任务是否在运行"""
         with self._lock:
-            return task_id in self.running_tasks
-            
+            return task_id in self.running_tasks and not self.running_tasks[task_id].is_set()
+    
     def get_queue_size(self) -> int:
         """获取队列中等待的任务数"""
         return self.task_queue.qsize()
@@ -114,6 +107,9 @@ class TaskExecutor:
             self.stop_tasks_flag = True
             # 清空任务队列
             self.task_queue.queue.clear()
-            # 记录当前运行的任务
-            running = list(self.running_tasks.keys())
-        return running
+            # 设置所有运行中任务的停止标志
+            running_tasks = list(self.running_tasks.keys())
+            for task_id, stop_event in self.running_tasks.items():
+                stop_event.set()
+                logger.info(f"Stopping task {task_id}")
+        return running_tasks
