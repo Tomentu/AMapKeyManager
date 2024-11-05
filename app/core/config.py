@@ -35,6 +35,7 @@ class Config:
     REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT'))
     
     # 代理配置
+    CUSTOM_PROXY_URL = os.getenv('CUSTOM_PROXY_URL', 'http://localhost:5000/amap')
     PROXY_ENABLED = os.getenv('PROXY_ENABLED', 'false').lower() == 'true'
     HTTP_PROXY = os.getenv('HTTP_PROXY')
     HTTPS_PROXY = os.getenv('HTTPS_PROXY')

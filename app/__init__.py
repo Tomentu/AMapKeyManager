@@ -4,6 +4,8 @@ from app.core.database import db
 from app.core.logger import setup_logger, logger
 from app.api.proxy import proxy_bp
 from app.api.admin import admin_bp
+from app.api.polygon import polygon_bp
+
 
 def create_app(config=None):
     app = Flask(__name__)
@@ -16,6 +18,7 @@ def create_app(config=None):
     # 注册蓝图
     app.register_blueprint(proxy_bp, url_prefix='/amap')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(polygon_bp, url_prefix='/api/polygon')
     
     # 全局错误处理
     @app.errorhandler(404)
@@ -55,5 +58,6 @@ def create_app(config=None):
         
         # 导入模型以触发自动创建
         from app.models.api_key import APIKey
+        from app.models.polygon_task import PolygonTask
 
     return app 

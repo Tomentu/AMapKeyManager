@@ -12,6 +12,11 @@ def admin_page():
     """管理页面"""
     return render_template('admin/keys.html')
 
+@admin_bp.route('/tasks')
+def tasks_page():
+    """任务管理页面"""
+    return render_template('admin/polygon_tasks.html')
+
 @admin_bp.route('/keys', methods=['GET'])
 def list_keys():
     """获取所有key的状态"""

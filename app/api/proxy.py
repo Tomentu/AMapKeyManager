@@ -19,6 +19,7 @@ SEARCH_ENDPOINTS = {
 @proxy_bp.route('/<path:endpoint>', methods=['GET'])
 def proxy_request(endpoint):
     """代理高德地图API请求"""
+    print(endpoint)
     try:
         # 检查是否是搜索服务请求
         search_type = SEARCH_ENDPOINTS.get(endpoint)
@@ -58,7 +59,6 @@ def proxy_request(endpoint):
             timeout=current_app.config['REQUEST_TIMEOUT'] / 1000,  # 转换为秒
             verify=False
         )
-        
         # 处理响应
         if response.status_code == 200:
             result = response.json()
