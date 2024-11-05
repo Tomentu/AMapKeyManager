@@ -157,6 +157,7 @@ class PolygonCrawler:
                     progress = task.progress
                     progress[task.current_type]['processed_pages'] += 1
                     progress[task.current_type]['processed_count'] += len(result['pois'])
+                    task.current_page = page
                     task.progress = progress
                     task.updated_at = datetime.now(tz)
                     #print(f"Task {task.task_id} updated at {task.updated_at}")
