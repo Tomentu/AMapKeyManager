@@ -22,7 +22,7 @@ def proxy_request(endpoint):
     try:
         # 检查是否是搜索服务请求
         search_type = SEARCH_ENDPOINTS.get(endpoint)
-        print(endpoint)
+        
         if not search_type:
             return jsonify({
                 'status': '0',
@@ -37,7 +37,7 @@ def proxy_request(endpoint):
                 'info': f'No available API key for {search_type} search',
                 'info_code': '1008611'
             }), 503
-
+        logger.info(f"Searching for {search_type} in {endpoint}, using key {key.masked_key},params: {request.args}")
         # 构建请求URL和参数
         url = f"{current_app.config['AMAP_BASE_URL']}/{endpoint}"
         params = dict(request.args)
@@ -82,7 +82,11 @@ def proxy_request(endpoint):
                     KeyManager.disable_key(key, reason=info)
                     logger.warning(f"Key {key.masked_key} is invalid, reason: {info}")
                     return proxy_request(endpoint)
-                return jsonify(result)
+                return Response(
+                    result,
+                    status=400,
+                    content_type=response.headers['content-type']
+                )
         else:
             return Response(
                 response.content,

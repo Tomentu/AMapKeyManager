@@ -80,20 +80,24 @@ class PolygonCrawler:
                 db.session.commit()
                 
                 # 获取当前页数据
-                result = PolygonCrawler._fetch_page(
-                    polygon=task.polygon,
+                polygon = task.polygon.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+                result, status_code = PolygonCrawler._fetch_page(
+                    polygon= polygon,
                     types=type_codes,
                     page=task.current_page,
                     offset=25
                 )
+
+            
                 
                 # 检查是否返回503或info_code为1008611
-                if result and result.get('info_code') == '1008611':
+                if status_code == 503 and (result and result.get('info_code') == '1008611'):
                     logger.warning(f"Task {task.task_id} received info_code 1008611, setting to pending")
                     task.status = 'pending'
                     db.session.commit()
                     return False
-                
+                if status_code != 200:
+                    raise Exception(f"Proxy request failed with status {status_code}")
                 if not result or not result.get('pois'):
                     continue
                     
@@ -119,20 +123,21 @@ class PolygonCrawler:
                 # 获取剩余页面
                 for page in range(2, total_pages + 1):
                     task.current_page = page
-                    result = PolygonCrawler._fetch_page(
-                        polygon=task.polygon,
+                    result, status_code = PolygonCrawler._fetch_page(
+                        polygon=polygon,
                         types=type_codes,
                         page=page,
                         offset=25
                     )
                     
                     # 检查是否返回503或info_code为1008611
-                    if result and result.get('info_code') == '1008611':
+                    if status_code == 503 and (result and result.get('info_code') == '1008611'):
                         logger.warning(f"Task {task.task_id} received info_code 1008611, setting to pending")
                         task.status = 'pending'
                         db.session.commit()
                         return False
-                    
+                    if status_code != 200:
+                        raise Exception(f"Proxy request failed with status {status_code}")
                     if not result or not result.get('pois'):
                         break
                         
@@ -194,19 +199,9 @@ class PolygonCrawler:
                     response = proxy_request('v3/place/polygon')
                 
                 if isinstance(response, tuple):
-                    status_code = response[1]
-                    data = response[0].json
+                    return response[0].json, response[1]
                     
-                    # 检查503错误和info_code
-                    if status_code == 503:
-                        if data.get('info_code') == '1008611':
-                            logger.warning(f"Received info_code 1008611")
-                            raise Exception("No available API key")
-                        raise Exception(f"Proxy request failed with status {status_code}")
-                    
-                    return data
-                    
-                return response.json
+                return response.json, response.status_code
                     
             except Exception as e:
                 retry_count += 1
