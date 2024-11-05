@@ -222,7 +222,7 @@ class PolygonCrawler:
                     raise
                 
                 logger.warning(f"Request failed (attempt {retry_count}/{max_retries}): {str(e)}")
-                time.sleep(5)  # 固定5秒重试间隔
+                time.sleep(10)  # 固定5秒重试间隔
                 continue
 
     @staticmethod

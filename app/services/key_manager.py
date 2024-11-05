@@ -159,6 +159,30 @@ class KeyManager:
             logger.error(f"增加key使用次数失败: {str(e)}")
             return False
 
+    @classmethod
+    def mark_daily_limit(cls, key_id: int, search_type: str) -> None:
+        """标记某个key的某项服务达到每日限额"""
+        try:
+            key = APIKey.query.get(key_id)
+            if not key:
+                logger.warning(f"Key {key_id} not found when marking daily limit")
+                return
+
+            # 直接将使用次数设置为限额值
+            if search_type == 'keyword':
+                key.keyword_search_used = key.SEARCH_LIMITS['keyword']
+            elif search_type == 'around':
+                key.around_search_used = key.SEARCH_LIMITS['around']
+            elif search_type == 'polygon':
+                key.polygon_search_used = key.SEARCH_LIMITS['polygon']
+            
+            db.session.commit()
+            logger.info(f"Key {key.masked_key} 已标记为{search_type}搜索达到每日限额")
+            
+        except Exception as e:
+            logger.error(f"标记key每日限额失败: {str(e)}")
+            db.session.rollback()
+
 
 
 # 密钥管理服务 
