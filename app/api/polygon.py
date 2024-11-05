@@ -50,7 +50,7 @@ def create_task():
 def list_tasks():
     """获取任务列表"""
     try:
-        tasks = PolygonTask.query.order_by(PolygonTask.created_at.desc()).all()
+        tasks = PolygonTask.query.order_by(PolygonTask.id.desc()).all()
         return jsonify([{
             'task_id': task.task_id,
             'name': task.name,

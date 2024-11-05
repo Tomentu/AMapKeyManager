@@ -20,12 +20,13 @@ class TaskExecutor:
     
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            self.max_workers = 1  # 最大线程数
+            self.max_workers = 3  # 最大线程数
             self.task_queue = Queue()  # 任务队列
             self.running_tasks: Dict[str, threading.Event] = {}  # 记录运行中的任务
             self.stop_flag = False  # 停止标志
             self.workers = []  # 工作线程列表
             self.stop_tasks_flag = False  # 停止所有任务的标志
+            self.semaphore = threading.Semaphore(1)  # 限制同时执行的任务数为1
             
             # 启动工作线程
             for _ in range(self.max_workers):
@@ -60,20 +61,22 @@ class TaskExecutor:
                 # 从队列获取任务
                 task_id, task_func, app, stop_event = self.task_queue.get(timeout=1)
                 
-                try:
-                    logger.info(f"Starting task {task_id}")
-                    with app.app_context():
-                        if self.stop_tasks_flag or stop_event.is_set():
-                            logger.info(f"Task {task_id} stopped")
-                            continue
-                        # 传入stop_event给任务函数
-                        task_func(task_id, stop_event)
-                except Exception as e:
-                    logger.error(f"Task {task_id} failed: {str(e)}")
-                finally:
-                    with self._lock:
-                        self.running_tasks.pop(task_id, None)
-                    self.task_queue.task_done()
+                # 使用信号量限制同时执行的任务数
+                with self.semaphore:
+                    try:
+                        logger.info(f"Starting task {task_id}")
+                        with app.app_context():
+                            if self.stop_tasks_flag or stop_event.is_set():
+                                logger.info(f"Task {task_id} stopped")
+                                continue
+                            # 传入stop_event给任务函数
+                            task_func(task_id, stop_event)
+                    except Exception as e:
+                        logger.error(f"Task {task_id} failed: {str(e)}")
+                    finally:
+                        with self._lock:
+                            self.running_tasks.pop(task_id, None)
+                        self.task_queue.task_done()
                     
             except Empty:
                 continue
@@ -91,6 +94,10 @@ class TaskExecutor:
     def get_queue_size(self) -> int:
         """获取队列中等待的任务数"""
         return self.task_queue.qsize()
+    
+    def get_active_tasks_count(self) -> int:
+        """获取当前活动的任务数"""
+        return 3 - self.semaphore._value
     
     def shutdown(self):
         """关闭任务执行器"""
