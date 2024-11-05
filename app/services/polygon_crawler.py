@@ -1,3 +1,4 @@
+import time
 from typing import Dict, List
 import csv
 import os
@@ -7,8 +8,7 @@ from app.models.polygon_task import PolygonTask
 from app.core.database import db
 from app.core.logger import logger
 from flask import current_app
-from app.services.task_executor import TaskExecutor
-import time
+from app.core.extensions import task_executor
 from app.api.proxy import proxy_request  # 导入proxy模块的函数
 from flask import request, Request
 from werkzeug.test import EnvironBuilder
@@ -16,9 +16,6 @@ import pytz
 
 # 获取东八区时区
 tz = pytz.timezone('Asia/Shanghai')
-
-# 创建全局单例
-task_executor = TaskExecutor()
 
 class PolygonCrawler:
     """多边形POI爬取服务"""
@@ -41,9 +38,8 @@ class PolygonCrawler:
         db.session.add(task)
         db.session.commit()
         
-        # 提交到任务执行器
+        # 使用全局任务执行器
         task_executor.submit_task(task_id, PolygonCrawler.execute_task)
-        
         return task
 
     @staticmethod
@@ -94,6 +90,7 @@ class PolygonCrawler:
                     page=task.current_page,
                     offset=25
                 )
+
 
             
                 
@@ -281,7 +278,7 @@ class PolygonCrawler:
         if task.status == 'completed':
             raise ValueError(f"Task is already completed: {task_id}")
             
-        # 提交到任务执行器
+        # 使用全局任务执行器
         return task_executor.submit_task(task_id, PolygonCrawler.execute_task)
 
     @staticmethod
