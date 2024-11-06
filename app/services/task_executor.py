@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import time
 from typing import Dict, Callable
 import threading
 from queue import Queue, Empty
@@ -81,7 +82,7 @@ class TaskExecutor:
                         with self._lock:
                             self.running_tasks.pop(task_id, None)
                         self.task_queue.task_done()
-                    
+                time.sleep(1)
             except Empty:
                 continue
     
