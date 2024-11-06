@@ -1,9 +1,10 @@
+import threading
 import time
 from typing import Dict, List
 import csv
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.models.polygon_task import PolygonTask
 from app.core.database import db
 from app.core.logger import logger
@@ -14,11 +15,15 @@ from flask import request, Request
 from werkzeug.test import EnvironBuilder
 import pytz
 
+from app.services.key_manager import KeyManager
+
 # 获取东八区时区
 tz = pytz.timezone('Asia/Shanghai')
 
 class PolygonCrawler:
     """多边形POI爬取服务"""
+    _lock = threading.Lock()
+    STALL_THRESHOLD = timedelta(minutes=5)  # 5分钟没有更新就认为是停滞
     
     @staticmethod
     def get_poi_types():
@@ -33,14 +38,61 @@ class PolygonCrawler:
             name=name,
             polygon=polygon,
             priority=priority,
-            result_file=f"{task_id}_poi.csv"
+            result_file=f"{task_id}_poi.csv",
+            status='waiting'
         )
         db.session.add(task)
         db.session.commit()
-        
-        # 使用全局任务执行器
-        task_executor.submit_task(task_id, PolygonCrawler.execute_task)
         return task
+
+    @staticmethod
+    def start_background_check() -> bool:
+        """启动后台检查"""
+        #创建线程
+        task_executor.submit_task(-999, PolygonCrawler.check_and_run_task)
+        return True
+
+    @staticmethod
+    def check_and_run_task(task_id: str,stop_event=None) -> bool:
+        """检查是否有任务在等待，有则运行"""
+        if not PolygonCrawler._lock.acquire(blocking=False):
+            return False
+            
+        try:
+            # 检查是否有正在运行且活跃的任务
+            running_task = PolygonTask.query.filter(
+                PolygonTask.status == 'running',
+                PolygonTask.updated_at >= datetime.now() - PolygonCrawler.STALL_THRESHOLD
+            ).first()
+            
+            if running_task:
+                return False
+                
+            # 检查是否有可用的key
+            key_manager = KeyManager()
+            if not key_manager.get_available_key():
+                return False
+                
+            # 获取优先级最高的等待任务
+            task = PolygonTask.query.filter(PolygonTask.status == 'waiting').order_by(PolygonTask.priority).first()
+            if not task:
+                return False
+                
+            # 先将任务状态设置为running
+            task.status = 'running'
+            task.updated_at = datetime.now()
+            db.session.commit()
+            
+            # 提交任务
+            task_executor.submit_task(task.task_id, PolygonCrawler.execute_task)
+            return True
+            
+        except Exception as e:
+            logger.error(f"启动任务失败: {str(e)}")
+            db.session.rollback()
+            return False
+        finally:
+            PolygonCrawler._lock.release()
 
     @staticmethod
     def execute_task(task_id: str,stop_event=None) -> bool:
@@ -90,10 +142,6 @@ class PolygonCrawler:
                     page=task.current_page,
                     offset=25
                 )
-
-
-            
-                
                 # 检查是否返回503或info_code为1008611
                 if status_code == 503 and (result and result.get('info_code') == '1008611'):
                     logger.warning(f"Task {task.task_id} received info_code 1008611, setting to pending")
@@ -125,7 +173,7 @@ class PolygonCrawler:
                 task.updated_at = datetime.now(tz)
                 db.session.commit()
                 time.sleep(2)
-                # 获取剩余页面
+                # 获取剩页面
                 for page in range(2, total_pages + 1):
                     task.current_page = page
                     result, status_code = PolygonCrawler._fetch_page(
@@ -268,18 +316,13 @@ class PolygonCrawler:
     @staticmethod
     def resume_task(task_id: str) -> bool:
         """恢复任务"""
+        #任务状态设为等待
         task = PolygonTask.query.filter_by(task_id=task_id).first()
         if not task:
-            raise ValueError(f"Task not found: {task_id}")
-            
-        if task_executor.is_task_running(task_id):
-            raise ValueError(f"Task is already running: {task_id}")
-            
-        if task.status == 'completed':
-            raise ValueError(f"Task is already completed: {task_id}")
-            
-        # 使用全局任务执行器
-        return task_executor.submit_task(task_id, PolygonCrawler.execute_task)
+            return False
+        task.status = 'waiting'
+        db.session.commit()
+        return True
 
     @staticmethod
     def resume_tasks(limit: int = 5) -> List[str]:
@@ -289,35 +332,18 @@ class PolygonCrawler:
         Returns:
             已恢复的任务ID列表
         """
-        # 先找出所有running状态但已停滞的任务
-        running_tasks = PolygonTask.query.filter_by(status='running').all()
-        stalled_task_ids = [task.task_id for task in running_tasks if task.is_stalled()]
-        
-        # 获取待恢复的任务（包括pending和stalled状态，按优先级排序）
-        pending_tasks = PolygonTask.query.filter(
-            db.or_(
-                PolygonTask.status == 'pending',
-                PolygonTask.task_id.in_(stalled_task_ids)
-            )
-        ).order_by(PolygonTask.priority).limit(limit).all()
-            
-        resumed_tasks = []
-        for task in pending_tasks:
-            try:
-                if task_executor.is_task_running(task.task_id):
-                    continue
-                    
-                if task_executor.submit_task(task.task_id, PolygonCrawler.execute_task):
-                    resumed_tasks.append(task.task_id)
-                    
-            except Exception as e:
-                logger.error(f"Failed to resume task {task.task_id}: {str(e)}")
-                continue
-                
-        return resumed_tasks
+        tasks = PolygonTask.query.filter(PolygonTask.status == 'waiting').order_by(PolygonTask.priority).limit(limit).all()
+        for task in tasks:
+            PolygonCrawler.resume_task(task.task_id)
+        return [task.task_id for task in tasks]
 
     @staticmethod
     def start_task(task_id: str):
         """启动爬虫任务"""
-        task_executor.submit_task(task_id, PolygonCrawler.execute_task)
-        
+        #状态设为等待
+        task = PolygonTask.query.filter_by(task_id=task_id).first()
+        if not task:
+            return False
+        task.status = 'waiting'
+        db.session.commit()
+        return True

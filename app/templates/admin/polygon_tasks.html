@@ -77,11 +77,13 @@
             </div>
         </div>
 
+        
         <!-- 任务列表 -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span>任务列表</span>
                 <div>
+                    <button class="btn btn-success btn-sm me-2" onclick="startBackgroundCheck()">启动后台检查</button>
                     <button class="btn btn-danger btn-sm me-2" onclick="stopAllTasks()">停止所有</button>
                     <button class="btn btn-warning btn-sm me-2" onclick="resumeBatchTasks()">批量恢复</button>
                     <button class="btn btn-secondary btn-sm" onclick="loadTasks()">刷新</button>
@@ -449,7 +451,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        alert('批量恢复失败: ' + data.error);
+                        alert('量恢复失败: ' + data.error);
                     } else {
                         alert(data.message);
                         loadTasks();  // 刷新任务列表
@@ -479,6 +481,27 @@
                     .catch(error => {
                         alert('停止任务失败: ' + error);
                     });
+            }
+        }
+
+        // 添加启动后台检查的函数
+        function startBackgroundCheck() {
+            if (confirm('确定要启动后台检查吗？')) {
+                fetch('/api/polygon/tasks/start', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('启动后台检查失败: ' + data.error);
+                    } else {
+                        alert(data.message);
+                        loadTasks();  // 刷新任务列表
+                    }
+                })
+                .catch(error => {
+                    alert('启动后台检查失败: ' + error);
+                });
             }
         }
 

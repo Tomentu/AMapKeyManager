@@ -186,10 +186,22 @@ def resume_tasks_batch():
         logger.error(f"Batch resume failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+
+@polygon_bp.route('/tasks/start', methods=['POST'])
+def start_task():
+    """启动任务"""
+    PolygonCrawler.start_background_check()
+    return jsonify({'message': 'Task started'}), 200
+
 @polygon_bp.route('/tasks/stop-all', methods=['POST'])
 def stop_all_tasks():
     """停止所有任务"""
     try:
+
+        #取消所有等待任务
+        PolygonTask.query.filter(PolygonTask.status == 'waiting').update({'status': 'pending'})
+        db.session.commit()
+        
         # 停止所有任务
         executor = TaskExecutor()
         stopped_tasks = executor.stop_all_tasks()
