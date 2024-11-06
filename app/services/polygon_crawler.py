@@ -64,44 +64,54 @@ class PolygonCrawler:
     @staticmethod
     def check_and_run_task() -> bool:
         """检查是否有任务在等待，有则运行"""
-        # 尝试获取锁
         if not PolygonCrawler._lock.acquire(blocking=False):
             return False
+            
         try:
+            # 计算停滞阈值时间
             stall_threshold = datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
-            running_task = PolygonTask.query.filter(
-                    PolygonTask.status == 'running',
-                    PolygonTask.updated_at >= stall_threshold
+            
+            # 检查是否有活跃的运行中任务（10分钟内有更新）
+            active_task = PolygonTask.query.filter(
+                PolygonTask.status == 'running',
+                PolygonTask.updated_at > stall_threshold  # 大于阈值表示活跃
             ).first()
-                
-            # 如果有运行中的任务
-            if running_task :
+            
+            # 如果有活跃任务，不启动新任务
+            if active_task:
                 return False
-                    
-                # 检查是否有可用的key
+                
+            # 检查是否有可用的key
             key_manager = KeyManager()
             if not key_manager.get_available_key(search_type='polygon'):
-                    return False
-                    
-            # 获取优先级最高的等待任务并锁定
-            task = PolygonTask.query.filter(
-                    PolygonTask.status == 'waiting'
-                    or (PolygonTask.status == 'running' and PolygonTask.updated_at <= stall_threshold)
-            ).order_by(PolygonTask.priority).first()
+                return False
                 
+            # 获取下一个要执行的任务（waiting状态或已停滞的running任务）
+            task = PolygonTask.query.filter(
+                db.or_(
+                    PolygonTask.status == 'waiting',
+                    db.and_(
+                        PolygonTask.status == 'running',
+                        PolygonTask.updated_at <= stall_threshold  # 小于等于阈值表示停滞
+                    )
+                )
+            ).order_by(PolygonTask.priority).first()
+            
             if not task:
                 return False
-                    
+                
             # 更新任务状态
             task.status = 'running'
             task.updated_at = datetime.now(tz)
             db.session.commit()
+            
             # 提交任务到执行器
             task_executor.submit_task(task.task_id, PolygonCrawler.execute_task)
             return True
             
         except Exception as e:
             logger.error(f"启动任务失败: {str(e)}")
+            db.session.rollback()
             return False
         finally:
             PolygonCrawler._lock.release()
