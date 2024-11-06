@@ -49,11 +49,19 @@ class PolygonCrawler:
     def start_background_check() -> bool:
         """启动后台检查"""
         #创建线程
-        task_executor.submit_task(-999, PolygonCrawler.check_and_run_task)
+        task_executor.submit_task(-999, PolygonCrawler.loop_check)
         return True
-
     @staticmethod
-    def check_and_run_task(task_id: str,stop_event=None) -> bool:
+    def loop_check(task_id: str,stop_event=None) -> bool:
+        """循环检查"""
+        while True:
+            time.sleep(10)
+            if stop_event and stop_event.is_set():
+                break
+            PolygonCrawler.check_and_run_task()
+        return True
+    @staticmethod
+    def check_and_run_task() -> bool:
         """检查是否有任务在等待，有则运行"""
         if not PolygonCrawler._lock.acquire(blocking=False):
             return False
