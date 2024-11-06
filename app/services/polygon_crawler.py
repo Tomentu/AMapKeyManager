@@ -86,7 +86,7 @@ class PolygonCrawler:
             # 获取优先级最高的等待任务并锁定
             task = PolygonTask.query.filter(
                     PolygonTask.status == 'waiting'
-            ).order_by(PolygonTask.priority).with_for_update().first()
+            ).order_by(PolygonTask.priority).first()
                 
             if not task:
                 return False
