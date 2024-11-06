@@ -12,7 +12,7 @@ def health_check():
     try:
         return jsonify({
             'status': 'healthy',
-        })
+        }), 200
         
     except Exception as e:
         return jsonify({
