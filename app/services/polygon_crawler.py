@@ -84,6 +84,7 @@ class PolygonCrawler:
             # 检查是否有可用的key
             key_manager = KeyManager()
             if not key_manager.get_available_key(search_type='polygon'):
+                logger.error("No available API key")
                 return False
                 
             # 获取下一个要执行的任务（waiting状态或已停滞的running任务）
