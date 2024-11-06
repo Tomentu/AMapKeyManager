@@ -86,6 +86,7 @@ class PolygonCrawler:
             # 获取优先级最高的等待任务并锁定
             task = PolygonTask.query.filter(
                     PolygonTask.status == 'waiting'
+                    or (PolygonTask.status == 'running' and PolygonTask.updated_at <= stall_threshold)
             ).order_by(PolygonTask.priority).first()
                 
             if not task:
@@ -94,7 +95,7 @@ class PolygonCrawler:
             # 更新任务状态
             task.status = 'running'
             task.updated_at = datetime.now(tz)
-                
+            db.session.commit()
             # 提交任务到执行器
             task_executor.submit_task(task.task_id, PolygonCrawler.execute_task)
             return True
