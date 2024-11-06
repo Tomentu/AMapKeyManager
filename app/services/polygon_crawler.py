@@ -23,7 +23,7 @@ tz = pytz.timezone('Asia/Shanghai')
 class PolygonCrawler:
     """多边形POI爬取服务"""
     _lock = threading.Lock()
-    STALL_THRESHOLD = timedelta(minutes=5)  # 5分钟没有更新就认为是停滞
+    STALL_THRESHOLD = timedelta(minutes=10)  # 10分钟没有更新就认为是停滞
     
     @staticmethod
     def get_poi_types():
@@ -72,12 +72,16 @@ class PolygonCrawler:
             # 使用 with 语句开启事务
             with db.session.begin():
                 # 使用 SELECT FOR UPDATE 锁定查询
+                # 获取优先级最高的pending、stash状态或停滞的任务
+                stall_threshold = datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
+
                 running_task = PolygonTask.query.filter(
-                    PolygonTask.status == 'running'
+                    PolygonTask.status == 'running',
+                    PolygonTask.updated_at >= stall_threshold
                 ).with_for_update().first()
                 
-                # 如果有运行中的任务，检查是否停滞
-                if running_task and not running_task.is_stalled():
+                # 如果有运行中的任务
+                if running_task :
                     return False
                     
                 # 检查是否有可用的key
@@ -226,6 +230,7 @@ class PolygonCrawler:
                     #print(f"Task {task.task_id} updated at {task.updated_at}")
                     db.session.commit()
                     time.sleep(2)
+                time.sleep(20)
                 
                 
             task.status = 'completed'
