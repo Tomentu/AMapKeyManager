@@ -70,7 +70,7 @@ class PolygonCrawler:
             # 检查是否有正在运行且活跃的任务
             running_task = PolygonTask.query.filter(
                 PolygonTask.status == 'running',
-                PolygonTask.updated_at >= datetime.now() - PolygonCrawler.STALL_THRESHOLD
+                PolygonTask.updated_at >= datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
             ).first()
             
             if running_task:
