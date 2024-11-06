@@ -234,6 +234,11 @@ class PolygonCrawler:
                 return False
             raise
         except Exception as e:
+            if 'No available API key' in str(e):
+                logger.error(f"No available API key: {str(e)}")
+                task.status = 'waiting'
+                db.session.commit()
+                raise
             logger.error(f"Task execution failed: {str(e)}")
             task.status = 'failed'
             db.session.commit()

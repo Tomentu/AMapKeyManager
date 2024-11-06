@@ -19,8 +19,8 @@ import requests
 
 if __name__ == '__main__':
     # 读取Excel文件
-    start_rank = 22
-    end_rank = 30
+    start_rank = 31
+    end_rank = 38
     df = pd.read_excel('D:\城市-商圈排名信息.xlsx')
     #筛选rank大于start_rank小于end_rank的
     df = df[(df['rank'] >= start_rank)]
