@@ -327,11 +327,11 @@ class PolygonCrawler:
 
     @staticmethod
     def resume_task(task_id: str) -> bool:
-        """恢复任务"""
-        #任务状态设为等待
+        """恢复单个任务"""
         task = PolygonTask.query.filter_by(task_id=task_id).first()
-        if not task:
+        if not task or task.status not in ['pending', 'stash']:
             return False
+            
         task.status = 'waiting'
         db.session.commit()
         return True
@@ -344,9 +344,25 @@ class PolygonCrawler:
         Returns:
             已恢复的任务ID列表
         """
-        tasks = PolygonTask.query.filter(PolygonTask.status == 'waiting').order_by(PolygonTask.priority).limit(limit).all()
+        # 获取优先级最高的pending、stash状态或停滞的任务
+        stall_threshold = datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
+        
+        tasks = PolygonTask.query.filter(
+            db.or_(
+                PolygonTask.status.in_(['pending', 'stash']),
+                db.and_(
+                    PolygonTask.status == 'running',
+                    PolygonTask.updated_at <= stall_threshold
+                )
+            )
+        ).order_by(PolygonTask.priority).limit(limit).all()
+        
+        # 将任务状态设置为waiting
         for task in tasks:
-            PolygonCrawler.resume_task(task.task_id)
+            task.status = 'waiting'
+            task.updated_at = datetime.now(tz)  # 更新时间戳
+        db.session.commit()
+        
         return [task.task_id for task in tasks]
 
     @staticmethod
