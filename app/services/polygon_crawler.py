@@ -67,41 +67,33 @@ class PolygonCrawler:
         # 尝试获取锁
         if not PolygonCrawler._lock.acquire(blocking=False):
             return False
-            
         try:
-            # 使用 with 语句开启事务
-            with db.session.begin():
-                # 使用 SELECT FOR UPDATE 锁定查询
-                # 获取优先级最高的pending、stash状态或停滞的任务
-                stall_threshold = datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
-
-                running_task = PolygonTask.query.filter(
+            stall_threshold = datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
+            running_task = PolygonTask.query.filter(
                     PolygonTask.status == 'running',
                     PolygonTask.updated_at >= stall_threshold
-                ).with_for_update().first()
+            ).with_for_update().first()
                 
-                # 如果有运行中的任务
-                if running_task :
-                    return False
+            # 如果有运行中的任务
+            if running_task :
+                return False
                     
                 # 检查是否有可用的key
-                key_manager = KeyManager()
-                if not key_manager.get_available_key(search_type='polygon'):
+            key_manager = KeyManager()
+            if not key_manager.get_available_key(search_type='polygon'):
                     return False
                     
-                # 获取优先级最高的等待任务并锁定
-                task = PolygonTask.query.filter(
+            # 获取优先级最高的等待任务并锁定
+            task = PolygonTask.query.filter(
                     PolygonTask.status == 'waiting'
-                ).order_by(PolygonTask.priority).with_for_update().first()
+            ).order_by(PolygonTask.priority).with_for_update().first()
                 
-                if not task:
-                    return False
+            if not task:
+                return False
                     
-                # 更新任务状态
-                task.status = 'running'
-                task.updated_at = datetime.now(tz)
-                
-                # 事务结束时自动提交
+            # 更新任务状态
+            task.status = 'running'
+            task.updated_at = datetime.now(tz)
                 
             # 提交任务到执行器
             task_executor.submit_task(task.task_id, PolygonCrawler.execute_task)

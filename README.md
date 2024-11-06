@@ -21,7 +21,23 @@
 git clone https://github.com/yourusername/AMapKeyManager.git
 cd AMapKeyManager
 
+2 docker 
+''' bash
+docker build -t amkm .
+'''
 
+3 运行容器
+''' bash
+docker run -d \
+  --name amkm \
+  -p 5001:5000 \
+  -v $(pwd)/app:/app/app \
+  -v $(pwd)/results:/app/results \
+  -v $(pwd)/logs:/app/logs \
+  --env-file .env \
+  --restart unless-stopped \
+  amkm
+'''
 
 ## 2. 环境配置
 
