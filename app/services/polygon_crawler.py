@@ -232,7 +232,7 @@ class PolygonCrawler:
                     task.updated_at = datetime.now(tz)
                     #print(f"Task {task.task_id} updated at {task.updated_at}")
                     db.session.commit()
-                    time.sleep(2)
+                    time.sleep(5)
                 time.sleep(20)
                 
                 
@@ -303,7 +303,7 @@ class PolygonCrawler:
                     logger.error(f"Request failed after {retry_count} retries: {str(e)}")
                     raise
                 logger.warning(f"Request failed (attempt {retry_count}/{max_retries}): {str(e)}")
-                time.sleep(30)  # 固定5秒重试间隔
+                time.sleep(60*3)  # 固定5秒重试间隔
                 continue
 
     @staticmethod
