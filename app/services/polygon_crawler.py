@@ -349,7 +349,7 @@ class PolygonCrawler:
     def resume_task(task_id: str) -> bool:
         """恢复单个任务"""
         task = PolygonTask.query.filter_by(task_id=task_id).first()
-        if not task or task.status not in ['pending', 'stash']:
+        if not task or task.status not in ['pending', 'stash','failed']:
             return False
             
         task.status = 'waiting'
