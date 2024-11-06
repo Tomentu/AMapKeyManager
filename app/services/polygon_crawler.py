@@ -72,7 +72,7 @@ class PolygonCrawler:
             running_task = PolygonTask.query.filter(
                     PolygonTask.status == 'running',
                     PolygonTask.updated_at >= stall_threshold
-            ).with_for_update().first()
+            ).first()
                 
             # 如果有运行中的任务
             if running_task :
