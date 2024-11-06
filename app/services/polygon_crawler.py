@@ -69,11 +69,11 @@ class PolygonCrawler:
         try:
             # 检查是否有正在运行且活跃的任务
             running_task = PolygonTask.query.filter(
-                PolygonTask.status == 'running',
-                PolygonTask.updated_at >= datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
+                PolygonTask.status == 'running'
             ).first()
             
-            if running_task:
+            # 如果有运行中的任务，检查是否停滞
+            if running_task and not running_task.is_stalled():
                 return False
                 
             # 检查是否有可用的key
@@ -88,7 +88,7 @@ class PolygonCrawler:
                 
             # 先将任务状态设置为running
             task.status = 'running'
-            task.updated_at = datetime.now()
+            task.updated_at = datetime.now(tz)
             db.session.commit()
             
             # 提交任务
