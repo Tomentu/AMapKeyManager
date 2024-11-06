@@ -49,12 +49,13 @@ class PolygonCrawler:
     def start_background_check() -> bool:
         """启动后台检查"""
         #创建线程
-        task_executor.submit_task(-999, PolygonCrawler.loop_check)
+        task_executor.submit_task(time.time(), PolygonCrawler.loop_check)
         return True
     @staticmethod
     def loop_check(task_id: str,stop_event=None) -> bool:
         """循环检查"""
         while True:
+            #logger.info(f"loop check {task_id}")
             time.sleep(10)
             if stop_event and stop_event.is_set():
                 break
@@ -63,41 +64,47 @@ class PolygonCrawler:
     @staticmethod
     def check_and_run_task() -> bool:
         """检查是否有任务在等待，有则运行"""
+        # 尝试获取锁
         if not PolygonCrawler._lock.acquire(blocking=False):
             return False
             
         try:
-            # 检查是否有正在运行且活跃的任务
-            running_task = PolygonTask.query.filter(
-                PolygonTask.status == 'running'
-            ).first()
-            
-            # 如果有运行中的任务，检查是否停滞
-            if running_task and not running_task.is_stalled():
-                return False
+            # 使用 with 语句开启事务
+            with db.session.begin():
+                # 使用 SELECT FOR UPDATE 锁定查询
+                running_task = PolygonTask.query.filter(
+                    PolygonTask.status == 'running'
+                ).with_for_update().first()
                 
-            # 检查是否有可用的key
-            key_manager = KeyManager()
-            if not key_manager.get_available_key(search_type='polygon'):
-                return False
+                # 如果有运行中的任务，检查是否停滞
+                if running_task and not running_task.is_stalled():
+                    return False
+                    
+                # 检查是否有可用的key
+                key_manager = KeyManager()
+                if not key_manager.get_available_key(search_type='polygon'):
+                    return False
+                    
+                # 获取优先级最高的等待任务并锁定
+                task = PolygonTask.query.filter(
+                    PolygonTask.status == 'waiting'
+                ).order_by(PolygonTask.priority).with_for_update().first()
                 
-            # 获取优先级最高的等待任务
-            task = PolygonTask.query.filter(PolygonTask.status == 'waiting').order_by(PolygonTask.priority).first()
-            if not task:
-                return False
+                if not task:
+                    return False
+                    
+                # 更新任务状态
+                task.status = 'running'
+                task.updated_at = datetime.now(tz)
                 
-            # 先将任务状态设置为running
-            task.status = 'running'
-            task.updated_at = datetime.now(tz)
-            db.session.commit()
-            
-            # 提交任务
+                # 事务结束时自动提交
+                
+            # 提交任务到执行器
             task_executor.submit_task(task.task_id, PolygonCrawler.execute_task)
             return True
             
         except Exception as e:
             logger.error(f"启动任务失败: {str(e)}")
-            db.session.rollback()
             return False
         finally:
             PolygonCrawler._lock.release()

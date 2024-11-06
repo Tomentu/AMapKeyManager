@@ -6,6 +6,7 @@ from app.core.extensions import init_extensions
 from app.api.proxy import proxy_bp
 from app.api.admin import admin_bp
 from app.api.polygon import polygon_bp
+from app.api.health import health_bp
 
 
 def create_app(config=None):
@@ -37,6 +38,8 @@ def create_app(config=None):
     app.register_blueprint(proxy_bp, url_prefix='/amap')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(polygon_bp, url_prefix='/api/polygon')
+    app.register_blueprint(health_bp, url_prefix='/health')
+
     
     # 8. 全局错误处理
     @app.errorhandler(404)
