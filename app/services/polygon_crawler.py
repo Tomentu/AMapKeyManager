@@ -23,7 +23,7 @@ tz = pytz.timezone('Asia/Shanghai')
 class PolygonCrawler:
     """多边形POI爬取服务"""
     _lock = threading.Lock()
-    STALL_THRESHOLD = timedelta(minutes=10)  # 10分钟没有更新就认为是停滞
+    STALL_THRESHOLD = timedelta(minutes=15)  # 10分钟没有更新就认为是停滞
     
     @staticmethod
     def get_poi_types():
@@ -49,7 +49,7 @@ class PolygonCrawler:
     def start_background_check() -> bool:
         """启动后台检查"""
         #创建线程
-        task_executor.submit_task(time.time(), PolygonCrawler.loop_check)
+        task_executor.submit_task("-1", PolygonCrawler.loop_check)
         return True
     @staticmethod
     def loop_check(task_id: str,stop_event=None) -> bool:
