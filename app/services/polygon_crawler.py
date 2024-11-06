@@ -167,8 +167,8 @@ class PolygonCrawler:
                 )
                 # 检查是否返回503或info_code为1008611
                 if status_code == 503 and (result and result.get('info_code') == '1008611'):
-                    logger.warning(f"Task {task.task_id} received info_code 1008611, setting to pending")
-                    task.status = 'pending'
+                    logger.warning(f"Task {task.task_id} received info_code 1008611, setting to waiting")
+                    task.status = 'waiting'
                     db.session.commit()
                     return False
                 if status_code != 200:
