@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+test
 *.py[cod]
 .hintrc
 *$py.class
