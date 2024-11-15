@@ -286,7 +286,7 @@ class PolygonCrawler:
                 
                 with request_ctx:
                     # 调用proxy_request
-                    response = proxy_request('v3/place/polygon',timeout=10)
+                    response = proxy_request('v3/place/polygon')
                 
                 if isinstance(response, tuple):
                     return response[0].json, response[1]
