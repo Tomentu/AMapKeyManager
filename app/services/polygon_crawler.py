@@ -56,7 +56,7 @@ class PolygonCrawler:
         """循环检查"""
         while True:
             #logger.info(f"loop check {task_id}")
-            time.sleep(10)
+            time.sleep(1)
             if stop_event and stop_event.is_set():
                 break
             PolygonCrawler.check_and_run_task()
@@ -195,7 +195,7 @@ class PolygonCrawler:
                 task.progress = progress  # 使用setter方法
                 task.updated_at = datetime.now(tz)
                 db.session.commit()
-                time.sleep(2)
+                time.sleep(0.2)
                 # 获取剩页面
                 for page in range(2, total_pages + 1):
                     task.current_page = page
@@ -233,8 +233,8 @@ class PolygonCrawler:
                     task.updated_at = datetime.now(tz)
                     #print(f"Task {task.task_id} updated at {task.updated_at}")
                     db.session.commit()
-                    time.sleep(5)
-                time.sleep(20)
+                    time.sleep(0.5)
+                time.sleep(1)
                 
                 
             task.status = 'completed'
@@ -304,7 +304,7 @@ class PolygonCrawler:
                     logger.error(f"Request failed after {retry_count} retries: {str(e)}")
                     raise
                 logger.warning(f"Request failed (attempt {retry_count}/{max_retries}): {str(e)}")
-                time.sleep(60*3)  # 固定5秒重试间隔
+                time.sleep(15*3)  # 固定5秒重试间隔
                 continue
 
     @staticmethod
