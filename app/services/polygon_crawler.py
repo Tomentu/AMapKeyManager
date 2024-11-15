@@ -256,7 +256,7 @@ class PolygonCrawler:
                 db.session.commit()
                 raise
             logger.error(f"Task execution failed: {str(e)}")
-            task.status = 'failed'
+            task.status = 'waiting'
             db.session.commit()
             raise
 
@@ -287,15 +287,14 @@ class PolygonCrawler:
                 with request_ctx:
                     # 调用proxy_request
                     response = proxy_request('v3/place/polygon')
-                
-                if isinstance(response, tuple):
-                    return response[0].json, response[1]
                 if response.status_code == 503 and (response and response.get('info_code') == '1008611'):
                     raise Exception("No available API key")
                 if not response:
                     raise Exception("Proxy request returned None")
                 if response.status_code != 200:
                     raise Exception(f"Proxy request failed with status {response.status_code}")
+                if isinstance(response, tuple):
+                    return response[0].json, response[1]
                 return response.json, response.status_code
                     
             except Exception as e:
@@ -304,7 +303,7 @@ class PolygonCrawler:
                     logger.error(f"Request failed after {retry_count} retries: {str(e)}")
                     raise
                 logger.warning(f"Request failed (attempt {retry_count}/{max_retries}): {str(e)}")
-                time.sleep(15*3)  # 固定5秒重试间隔
+                time.sleep(15)  # 固定5秒重试间隔
                 continue
 
     @staticmethod

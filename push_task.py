@@ -29,7 +29,7 @@ if __name__ == '__main__':
     for index, row in df.iterrows():
         #print(row['city'], row['rank'],row["poi_boundary_02"])
         #发送post请求
-        if row['rank']<14726:
+        if row['rank']<14823:
             continue
         if row['rank'] in ids:
             try:
