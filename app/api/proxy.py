@@ -32,7 +32,7 @@ def proxy_request(endpoint):
         # 获取可用的key
         key = KeyManager.get_available_key(search_type)
         if search_type == 'polygon':
-            time.sleep(1/key.polygon_qps_limit)
+            time.sleep(1/key.polygon_qps_limit*1.5)
         if not key:
             return jsonify({
                 'status': '0',

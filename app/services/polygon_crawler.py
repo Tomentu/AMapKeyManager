@@ -23,7 +23,7 @@ tz = pytz.timezone('Asia/Shanghai')
 class PolygonCrawler:
     """多边形POI爬取服务"""
     _lock = threading.Lock()
-    STALL_THRESHOLD = timedelta(minutes=15)  # 10分钟没有更新就认为是停滞
+    STALL_THRESHOLD = timedelta(minutes=5)  # 5分钟没有更新就认为是停滞
     
     @staticmethod
     def get_poi_types():
@@ -286,7 +286,7 @@ class PolygonCrawler:
                 
                 with request_ctx:
                     # 调用proxy_request
-                    response = proxy_request('v3/place/polygon')
+                    response = proxy_request('v3/place/polygon',timeout=10)
                 
                 if isinstance(response, tuple):
                     return response[0].json, response[1]
