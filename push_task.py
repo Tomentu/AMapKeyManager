@@ -26,12 +26,17 @@ if __name__ == '__main__':
     #筛选rank大于start_rank小于end_rank的
     df = df[(df['rank'] >= start_rank)]
     df = df[(df['rank'] <= end_rank)]
+    k = 1
     for index, row in df.iterrows():
         #print(row['city'], row['rank'],row["poi_boundary_02"])
         #发送post请求
-        if row['rank']<14823:
-            continue
-        if row['rank'] in ids:
+        
+        if not row['if_get'] == 1 and row['rank'] not in ids and row["rank"]>10432:
+
+            # print(row['city'])
+            # continue
+            if k >=90:
+                break
             try:
                 response = requests.post('http://172.21.12.24:5001/api/polygon/tasks', json={
                     "task_id": row['rank'],
@@ -40,7 +45,9 @@ if __name__ == '__main__':
                 "priority": row['rank']
             })
                 print(response.json())
-                time.sleep(1)
+                if response.status_code ==200:
+                    time.sleep(1)
+                    k+=1
             except Exception as e:
                 print(e)
         

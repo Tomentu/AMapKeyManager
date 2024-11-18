@@ -233,7 +233,7 @@ class PolygonCrawler:
                     task.updated_at = datetime.now(tz)
                     #print(f"Task {task.task_id} updated at {task.updated_at}")
                     db.session.commit()
-                    time.sleep(0.5)
+                    time.sleep(0.2)
                 time.sleep(1)
                 
                 
