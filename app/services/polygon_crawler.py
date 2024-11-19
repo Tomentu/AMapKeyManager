@@ -72,15 +72,16 @@ class PolygonCrawler:
             stall_threshold = datetime.now(tz) - PolygonCrawler.STALL_THRESHOLD
             
             # 检查是否有活跃的运行中任务（10分钟内有更新）
-            active_task = PolygonTask.query.filter(
+            active_task_count = PolygonTask.query.filter(
                 PolygonTask.status == 'running',
                 PolygonTask.updated_at > stall_threshold  # 大于阈值表示活跃
             ).first()
-            
+            current_hour = datetime.now(tz=tz).hour
             # 如果有活跃任务，不启动新任务
-            if active_task:
+            if active_task_count >= 1 and current_hour < 9:
                 return False
-                
+            if active_task_count >= 3 and current_hour >= 9:
+                return False
             # 检查是否有可用的key
             key_manager = KeyManager()
             if not key_manager.get_available_key(search_type='polygon'):

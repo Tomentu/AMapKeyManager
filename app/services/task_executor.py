@@ -23,13 +23,13 @@ class TaskExecutor:
     def __init__(self):
         if not hasattr(self, 'initialized'):
             logger.info("Initializing TaskExecutor")
-            self.max_workers = 2  # 确保只有一个工作线程
+            self.max_workers = 5  # 确保只有一个工作线程
             self.task_queue = Queue()
             self.running_tasks: Dict[str, threading.Event] = {}
             self.stop_flag = False
             self.workers = []
             self.stop_tasks_flag = False
-            self.semaphore = threading.Semaphore(2)
+            self.semaphore = threading.Semaphore(5)
             
             # 启动工作线程
             for _ in range(self.max_workers):
