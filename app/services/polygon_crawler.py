@@ -75,7 +75,7 @@ class PolygonCrawler:
             active_task_count = PolygonTask.query.filter(
                 PolygonTask.status == 'running',
                 PolygonTask.updated_at > stall_threshold  # 大于阈值表示活跃
-            ).first()
+            ).count()
             current_hour = datetime.now(tz=tz).hour
             # 如果有活跃任务，不启动新任务
             if active_task_count >= 1 and current_hour < 9:
