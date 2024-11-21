@@ -47,28 +47,26 @@ class KeyManager:
 
             # 根据搜索类型和限额查询可用的key
             if search_type == 'keyword':
-                key = APIKey.query.filter(
+                keys = APIKey.query.filter(
                     APIKey.is_active == True,
                     APIKey.keyword_search_used < APIKey.keyword_search_limit
-                ).order_by(
-                    APIKey.keyword_search_used.asc()
-                ).first()
+                ).all()
             elif search_type == 'around':
-                key = APIKey.query.filter(
+                keys = APIKey.query.filter(
                     APIKey.is_active == True,
                     APIKey.around_search_used < APIKey.around_search_limit
-                ).order_by(
-                    APIKey.around_search_used.asc()
-                ).first()
+                ).all()
             elif search_type == 'polygon':
-                key = APIKey.query.filter(
+                keys = APIKey.query.filter(
                     APIKey.is_active == True,
                     APIKey.polygon_search_used < APIKey.polygon_search_limit
-                ).order_by(
-                    APIKey.polygon_search_used.asc()
-                ).first()
+                ).all()
             else:
                 raise ValueError(f"无效的搜索类型: {search_type}")
+
+            # 从可用的keys中随机选择一个
+            import random
+            key = random.choice(keys) if keys else None
 
             return key
             
