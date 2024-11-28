@@ -48,20 +48,57 @@ def create_task():
 
 @polygon_bp.route('/tasks', methods=['GET'])
 def list_tasks():
-    """获取任务列表"""
+    """获取任务列表，支持状态筛选和分页，已完成降序，未完成升序"""
     try:
-        tasks = PolygonTask.query.order_by(PolygonTask.id.desc()).limit(200).all()
-        return jsonify([{
-            'task_id': task.task_id,
-            'name': task.name,
-            'status': 'stalled' if task.is_stalled() else task.status,
-            'current_type': task.current_type,
-            'current_page': task.current_page,
-            'progress': task.progress,
-            'created_at': task.created_at.isoformat(),
-            'updated_at': task.updated_at.isoformat(),
-            'priority': task.priority
-        } for task in tasks])
+        # 获取查询参数
+        status = request.args.get('status', 'all')  # all, completed, incomplete
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+
+        # 构建基础查询
+        query = PolygonTask.query
+
+        # 根据状态筛选并设置对应的排序方式
+        if status == 'completed':
+            # 已完成任务按id降序
+            query = query.filter_by(status='completed')\
+                        .order_by(PolygonTask.id.desc())
+        elif status == 'incomplete':
+            # 未完成任务按id升序
+            query = query.filter(PolygonTask.status != 'completed')\
+                        .order_by(PolygonTask.id.asc())
+        else:
+            # 默认情况：先显示未完成的（升序），再显示已完成的（降序）
+            incomplete = query.filter(PolygonTask.status != 'completed')\
+                            .order_by(PolygonTask.id.asc())
+            completed = query.filter_by(status='completed')\
+                           .order_by(PolygonTask.id.desc())
+            query = incomplete.union(completed)     
+
+        # 添加分页
+        paginated_tasks = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        return jsonify({
+            'tasks': [{
+                'task_id': task.task_id,
+                'name': task.name,
+                'status': 'stalled' if task.is_stalled() else task.status,
+                'current_type': task.current_type,
+                'current_page': task.current_page,
+                'progress': task.progress,
+                'created_at': task.created_at.isoformat(),
+                'updated_at': task.updated_at.isoformat(),
+                'priority': task.priority
+            } for task in paginated_tasks.items],
+            'pagination': {
+                'total': paginated_tasks.total,
+                'pages': paginated_tasks.pages,
+                'current_page': paginated_tasks.page,
+                'per_page': paginated_tasks.per_page,
+                'has_next': paginated_tasks.has_next,
+                'has_prev': paginated_tasks.has_prev
+            }
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
