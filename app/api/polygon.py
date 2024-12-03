@@ -5,6 +5,7 @@ from app.core.database import db
 import os
 import logging
 from app.services.task_executor import TaskExecutor
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def list_tasks():
             incomplete = query.filter(PolygonTask.status != 'completed')\
                             .order_by(PolygonTask.id.asc())
             completed = query.filter_by(status='completed')\
-                           .order_by(PolygonTask.id.desc())
+                           .order_by(PolygonTask.id.asc())
             query = incomplete.union(completed)     
 
         # 添加分页
@@ -257,4 +258,53 @@ def stop_all_tasks():
 
     except Exception as e:
         logger.error(f"Stop all tasks failed: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@polygon_bp.route('/tasks/completed-by-date', methods=['GET'])
+def list_completed_tasks_by_date():
+    """获取指定日期完成的任务列表（不分页）"""
+    try:
+        # 获取日期参数，默认为今天
+        date_str = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+
+        try:
+            # 解析日期
+            target_date = datetime.strptime(date_str, '%Y-%m-%d')
+            # 设置日期范围（当天0点到次日0点）
+            start_time = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(days=1)
+        except ValueError:
+            return jsonify({'error': '日期格式无效，请使用YYYY-MM-DD格式'}), 400
+
+        # 查询指定日期完成的所有任务
+        tasks = PolygonTask.query\
+            .filter_by(status='completed')\
+            .filter(PolygonTask.updated_at >= start_time)\
+            .filter(PolygonTask.updated_at < end_time)\
+            .order_by(PolygonTask.id.desc())\
+            .all()
+
+        return jsonify({
+            'date': date_str,
+            'tasks': [{
+                'task_id': task.task_id,
+                'name': task.name,
+                'status': task.status,
+                'current_type': task.current_type,
+                'current_page': task.current_page,
+                'progress': task.progress,
+                'created_at': task.created_at.isoformat(),
+                'updated_at': task.updated_at.isoformat(),
+                'priority': task.priority
+            } for task in tasks],
+            'statistics': {
+                'total_completed': len(tasks),
+                'date_range': {
+                    'start': start_time.isoformat(),
+                    'end': end_time.isoformat()
+                }
+            }
+        })
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
