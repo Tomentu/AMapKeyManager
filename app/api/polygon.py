@@ -292,7 +292,7 @@ def list_completed_tasks_by_date():
                 'status': task.status,
                 'current_type': task.current_type,
                 'current_page': task.current_page,
-                'progress': task.progress,
+                'polygon': task.polygon,
                 'created_at': task.created_at.isoformat(),
                 'updated_at': task.updated_at.isoformat(),
                 'priority': task.priority
